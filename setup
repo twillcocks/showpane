@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Showpane setup script
+# Installs skills and configures the portal app
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SKILLS_DIR="${HOME}/.claude/skills/showpane"
+
+echo "=== Showpane Setup ==="
+echo ""
+
+# Symlink skills
+if [ -d "$SCRIPT_DIR/skills" ] && [ "$(ls -A "$SCRIPT_DIR/skills" 2>/dev/null)" ]; then
+  echo "Installing skills to ${SKILLS_DIR}..."
+  mkdir -p "$(dirname "$SKILLS_DIR")"
+  ln -sfn "$SCRIPT_DIR/skills" "$SKILLS_DIR"
+  echo "Skills installed."
+else
+  echo "No skills found (skills/ directory is empty). Skipping skill installation."
+fi
+
+echo ""
+
+# Check for app directory
+if [ ! -f "$SCRIPT_DIR/app/package.json" ]; then
+  echo "Error: app/package.json not found. Are you in the showpane repo root?"
+  exit 1
+fi
+
+echo "Installing app dependencies..."
+cd "$SCRIPT_DIR/app"
+npm install
+
+echo ""
+echo "Setup complete!"
+echo ""
+echo "Next steps:"
+echo "  1. Copy .env.example to .env and configure"
+echo "  2. Run: npx prisma migrate dev"
+echo "  3. Run: npx prisma db seed"
+echo "  4. Run: npm run dev"

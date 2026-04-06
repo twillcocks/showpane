@@ -1,0 +1,260 @@
+"use client";
+
+import { type ReactNode, useEffect, useState } from "react";
+import { Check, Copy, type LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+export type PortalTab = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  badge?: "amber" | null;
+  content: ReactNode;
+};
+
+export type PortalContact = {
+  name: string;
+  title: string;
+  avatarSrc: string;
+  email: string;
+  phone?: string;
+  phoneDisplay?: string;
+  message?: string;
+};
+
+export type PortalShellProps = {
+  companyName: string;
+  companyLogo: ReactNode;
+  portalLabel?: string;
+
+  clientName: string;
+  clientLogoSrc: string;
+  clientLogoAlt: string;
+
+  tabs: PortalTab[];
+
+  contact: PortalContact;
+  lastUpdated: string;
+  hideFooterOnTab?: string;
+
+  shareEndpoint?: string;
+  eventsEndpoint?: string;
+};
+
+function trackEvent(eventsEndpoint: string, event: string, detail?: string) {
+  fetch(eventsEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, detail }),
+  }).catch(() => {});
+}
+
+function readHashTab(tabIds: string[]): string {
+  if (typeof window === "undefined") return tabIds[0] ?? "";
+  const hash = window.location.hash.replace("#", "");
+  return tabIds.includes(hash) ? hash : tabIds[0] ?? "";
+}
+
+export function PortalShell({
+  companyName,
+  companyLogo,
+  portalLabel,
+  clientName,
+  clientLogoSrc,
+  clientLogoAlt,
+  tabs,
+  contact,
+  lastUpdated,
+  hideFooterOnTab,
+  shareEndpoint,
+  eventsEndpoint,
+}: PortalShellProps) {
+  const resolvedShareEndpoint = shareEndpoint ?? "/api/client-auth/share";
+  const resolvedEventsEndpoint = eventsEndpoint ?? "/api/client-events";
+  const resolvedPortalLabel = portalLabel ?? "Client Portal";
+  const resolvedContactMessage = contact.message ?? "Reach out anytime";
+
+  const tabIds = tabs.map((tab) => tab.id);
+  const defaultTab = tabIds[0] ?? "";
+
+  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+
+  useEffect(() => {
+    const syncFromHash = () => setActiveTab(readHashTab(tabIds));
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    trackEvent(resolvedEventsEndpoint, "portal_view");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!copied && !copyError) return;
+    const timeout = window.setTimeout(() => { setCopied(false); setCopyError(false); }, 2000);
+    return () => window.clearTimeout(timeout);
+  }, [copied, copyError]);
+
+  function switchTab(tab: string) {
+    setActiveTab(tab);
+    window.history.replaceState(null, "", `#${tab}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    trackEvent(resolvedEventsEndpoint, "tab_switch", tab);
+  }
+
+  async function handleShare() {
+    try {
+      const response = await fetch(resolvedShareEndpoint);
+      if (!response.ok) { setCopyError(true); return; }
+
+      const { shareUrl } = (await response.json()) as { shareUrl?: string };
+      if (!shareUrl) { setCopyError(true); return; }
+
+      await navigator.clipboard.writeText(
+        activeTab === defaultTab ? shareUrl : `${shareUrl}#${activeTab}`
+      );
+      setCopied(true);
+    } catch {
+      setCopyError(true);
+    }
+  }
+
+  const activeContent = tabs.find((t) => t.id === activeTab)?.content ?? null;
+  const showFooter = hideFooterOnTab ? activeTab !== hideFooterOnTab : true;
+
+  return (
+    <div className="flex min-h-screen flex-col bg-gray-50">
+      <div className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur">
+        <header className="border-b bg-white/90">
+          <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-3">
+              <div className="relative flex items-center">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-900">
+                  {companyLogo}
+                </div>
+                <img
+                  src={clientLogoSrc}
+                  alt={clientLogoAlt}
+                  width={32}
+                  height={32}
+                  className="-ml-2 h-8 w-8 rounded-full border-2 border-white"
+                  loading="eager"
+                />
+              </div>
+              <div>
+                <h1 className="text-sm font-bold tracking-tight text-gray-900">
+                  {clientName}
+                </h1>
+                <p className="text-[11px] text-gray-500">{companyName} {resolvedPortalLabel}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleShare}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                copyError
+                  ? "border-red-200 text-red-600"
+                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              )}
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-green-500" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+              {copied ? "Copied!" : copyError ? "Failed to copy" : "Copy secure link"}
+            </button>
+          </div>
+        </header>
+
+        <div className="bg-white/90">
+          <div role="tablist" className="mx-auto flex max-w-4xl gap-1 overflow-x-auto px-4 sm:px-6">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  aria-controls={`tabpanel-${tab.id}`}
+                  id={`tab-${tab.id}`}
+                  onClick={() => switchTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors sm:gap-2 sm:px-4",
+                    activeTab === tab.id
+                      ? "border-primary text-primary"
+                      : "border-transparent text-gray-400 hover:text-gray-700"
+                  )}
+                >
+                  <span className="relative">
+                    <Icon className="h-4 w-4" />
+                    {tab.badge && activeTab !== tab.id ? (
+                      <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-amber-400" />
+                    ) : null}
+                  </span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.label.split(" ")[0]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <main
+        id="main-content"
+        role="tabpanel"
+        aria-labelledby={`tab-${activeTab}`}
+        className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8"
+      >
+        {activeContent}
+      </main>
+
+      {showFooter ? (
+        <footer className="mt-auto border-t bg-white">
+          <div className="mx-auto flex max-w-4xl items-center gap-4 px-4 py-4 sm:px-6">
+            <img
+              src={contact.avatarSrc}
+              alt={contact.name}
+              width={32}
+              height={32}
+              className="h-8 w-8 shrink-0 rounded-full"
+              loading="lazy"
+            />
+            <div className="flex-1">
+              <p className="text-xs">
+                <span className="font-semibold text-gray-900">{contact.name}</span>{" "}
+                <span className="text-gray-400">{contact.title}</span>
+              </p>
+              <p className="text-[11px] text-gray-500">{resolvedContactMessage}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <a
+                href={`mailto:${contact.email}`}
+                className="text-xs text-gray-400 transition-colors hover:text-gray-600"
+              >
+                {contact.email}
+              </a>
+              {contact.phone ? (
+                <a
+                  href={`tel:${contact.phone}`}
+                  className="text-xs text-gray-400 transition-colors hover:text-gray-600"
+                >
+                  {contact.phoneDisplay ?? contact.phone}
+                </a>
+              ) : null}
+            </div>
+          </div>
+          <p className="pb-3 text-center text-[11px] text-gray-300">Last updated {lastUpdated}</p>
+        </footer>
+      ) : null}
+    </div>
+  );
+}

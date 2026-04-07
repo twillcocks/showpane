@@ -67,6 +67,15 @@ Resolve the path to an absolute path (no `~` or relative components) before stor
 
 Store the resolved absolute path as `APP_PATH`.
 
+#### npx Mode
+
+When `setup_source` is `"npx"` (set by the npx installer), the setup should:
+- Skip the app_path detection (already known from the installer)
+- Skip the deploy mode question (default to docker for local dev)
+- Auto-detect SQLite from DATABASE_URL (if it starts with "file:" it's SQLite)
+- Still ask for org name, contact details, and website URL
+- Be more concise — the user just ran `npx showpane` and wants to get going fast
+
 ### Step 3: Ask for deploy mode
 
 Present the options:
@@ -128,6 +137,10 @@ Ask the user for their organization details one at a time. Do not present all qu
 3. **Contact email** (required) — e.g., "jane@acme.com". Displayed in the portal footer as a mailto link.
 4. **Contact title** (optional, default: "Account Manager") — e.g., "Director", "Partner", "Client Success Lead". Shown next to the contact name in the portal footer.
 5. **Contact phone** (optional) — e.g., "+44 7700 900000". If provided, displayed alongside email in the portal footer.
+6. **Company website URL** (optional) — e.g., "acme.com". Used to auto-fetch the company logo via Clearbit.
+   - If provided, fetch logo URL: `https://logo.clearbit.com/{domain}` and store in `Organization.logoUrl`
+   - Also store the URL in `Organization.websiteUrl`
+7. **Contact avatar**: Auto-populated from the contact email via Gravatar. No need to ask — just use `getAvatarUrl(email, contactName)` from `app/src/lib/branding.ts` and store in `Organization.contactAvatar`
 
 Generate an org slug from the organization name: lowercase, replace spaces with hyphens, strip non-alphanumeric characters except hyphens, remove consecutive hyphens. For example, "Acme Consulting Ltd." becomes `acme-consulting-ltd`. Confirm the generated slug with the user and allow them to override it.
 

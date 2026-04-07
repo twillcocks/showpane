@@ -50,6 +50,10 @@ The script returns `{"valid":true}` or `{"valid":false,"reason":"...","message":
 
 If invalid, explain the issue and ask for a different slug.
 
+Also ask for the client's website domain (e.g., "acme-health.com"). This is optional but enables auto-branding:
+- If provided, the client logo will be fetched via `getLogoUrl(domain)` and stored in `ClientPortal.logoUrl`
+- If not provided, an initial-based logo is generated via `getInitialLogo(companyName)` and stored as a data URI
+
 ### Step 2: Granola MCP integration (optional)
 
 Try to use the Granola MCP `list_meetings` tool to fetch recent meetings. This is a convenience, not a requirement.
@@ -161,7 +165,7 @@ import { PortalShell } from "@/components/portal-shell";
 - `companyName` — the org's company name (from config/DB)
 - `companyLogo` — a `<span>` with the first letter of the company name, white text
 - `clientName` — the client's company name (from transcript or user input)
-- `clientLogoSrc` — use a placeholder path like `/logos/<slug>.svg` or a generated initial
+- `clientLogoSrc` — if client domain was provided: use `getLogoUrl(domain)` from `app/src/lib/branding.ts`. If not: use `getInitialLogo(clientName)` to generate an SVG data URI. Store the chosen URL in the ClientPortal record's `logoUrl` field
 - `clientLogoAlt` — the client company name
 - `lastUpdated` — today's date formatted as "7 April 2026"
 - `contact` — object with `name`, `title`, `avatarSrc`, `email` (from org config)

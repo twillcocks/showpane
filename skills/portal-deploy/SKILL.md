@@ -33,6 +33,27 @@ LEARN_FILE="$HOME/.showpane/learnings.jsonl"
 
 ## Steps
 
+### Step 0: Choose deployment target
+
+Present the deployment options:
+
+1. **Self-host with Docker** (free) — Deploy with Docker Compose on your own server
+2. **Showpane Cloud** ($29/month, 7-day free trial) — Managed hosting at {org}.showpane.com
+
+If the user chooses Docker, continue with the existing deploy flow (Steps 1-6).
+
+If the user chooses Cloud:
+1. Inform: "Showpane Cloud is coming soon. For now, self-host with Docker or deploy to your own Vercel."
+2. When cloud is available (check for `app.showpane.com/api/status`):
+   a. Open browser to `app.showpane.com/cli/authorize?org=<org_slug>`
+   b. User signs up with Clerk, adds Stripe payment
+   c. CLI polls for authorization token via device auth flow
+   d. On success: update config `deploy_mode: "cloud"`, store API token
+   e. Build locally, upload to Vercel via Platforms API
+   f. Portal goes live at `{org}.showpane.com`
+
+For now, the cloud path should gracefully fall back: "Cloud deployment is not yet available. Would you like to deploy with Docker instead?"
+
 ### Step 1: Pre-flight checks
 
 Run all checks before deploying. Any failure here should block the deploy.

@@ -45,7 +45,15 @@ The onboard flow is linear. Each step depends on the previous one completing suc
 
 ### Step 1: Welcome message
 
-Start with a welcome that sets expectations:
+Start with a welcome that sets expectations. First, display the ASCII welcome banner:
+
+```
+ ╔══════════════════════════════════════════╗
+ ║  SHOWPANE — Client Portal Generator     ║
+ ╚══════════════════════════════════════════╝
+```
+
+Then continue with:
 
 "Welcome to Showpane! Let's set up your first client portal. This will take about 5 minutes and we'll go through four steps:
 
@@ -69,6 +77,13 @@ The setup flow will:
 - Write the config to `~/.showpane/config.json`
 - Set file permissions
 
+During setup, also ask for the company's website URL (e.g., "acme.com"). This is used for auto-branding:
+- Fetch the company logo via `getLogoUrl(domain)` from `app/src/lib/branding.ts`
+- The logo URL will be stored in the Organization record's `logoUrl` field
+- If the user doesn't have a website, skip — the initial-based fallback works fine
+
+Also ask for the contact's email address and use `getAvatarUrl(email, contactName)` to auto-populate the contact avatar.
+
 **Important**: If setup detects that Showpane is already configured (config file exists, database is connected, org exists), acknowledge it and skip to the next step: "Showpane is already configured. Skipping setup."
 
 If setup fails at any point (database not reachable, app not found), stop the onboard flow and provide clear instructions: "Setup needs to be completed before we can continue. Fix the issue above and run /portal onboard again."
@@ -76,6 +91,18 @@ If setup fails at any point (database not reachable, app not found), stop the on
 After successful setup, transition:
 
 "Setup complete! Your Showpane instance is configured. Let's create your first portal."
+
+### Granola MCP Integration
+
+After setup, check if Granola MCP tools are available by attempting to call `list_meetings`. 
+
+If available:
+- Show: "I found your Granola meetings. Want to use a recent call as the source for your first portal?"
+- List recent meetings with date + title
+- If selected, use the transcript to pre-populate portal content
+
+If not available:
+- Skip silently. Do not mention Granola or show an error.
 
 ### Step 3: Run the create flow
 

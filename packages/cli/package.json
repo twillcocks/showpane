@@ -1,0 +1,21 @@
+{
+  "name": "showpane",
+  "version": "0.1.0",
+  "description": "Generate professional client portals with Claude Code",
+  "bin": {
+    "showpane": "./dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": ["showpane", "client-portal", "claude-code"],
+  "author": "twillcocks",
+  "license": "AGPL-3.0",
+  "devDependencies": {
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

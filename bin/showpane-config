@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG_DIR="${HOME}/.showpane"
+CONFIG_FILE="${CONFIG_DIR}/config.json"
+
+usage() {
+  echo "Usage: showpane-config <get|set> <key> [value]"
+  echo ""
+  echo "Commands:"
+  echo "  get <key>          Read a value from config"
+  echo "  set <key> <value>  Write a value to config"
+  echo ""
+  echo "Config file: ${CONFIG_FILE}"
+  exit 1
+}
+
+ensure_config() {
+  if [ ! -d "$CONFIG_DIR" ]; then
+    mkdir -p "$CONFIG_DIR"
+  fi
+  if [ ! -f "$CONFIG_FILE" ]; then
+    echo '{}' > "$CONFIG_FILE"
+    chmod 600 "$CONFIG_FILE"
+  fi
+}
+
+case "${1:-}" in
+  get)
+    [ -z "${2:-}" ] && usage
+    ensure_config
+    # Use python3 for portable JSON parsing (available on macOS + Linux)
+    python3 -c "
+import json, sys
+with open('$CONFIG_FILE') as f:
+    data = json.load(f)
+key = '$2'
+if key in data:
+    print(data[key])
+else:
+    sys.exit(1)
+"
+    ;;
+  set)
+    [ -z "${2:-}" ] || [ -z "${3:-}" ] && usage
+    ensure_config
+    python3 -c "
+import json
+with open('$CONFIG_FILE') as f:
+    data = json.load(f)
+data['$2'] = '$3'
+with open('$CONFIG_FILE', 'w') as f:
+    json.dump(data, f, indent=2)
+"
+    chmod 600 "$CONFIG_FILE"
+    ;;
+  --help|-h)
+    usage
+    ;;
+  *)
+    usage
+    ;;
+esac

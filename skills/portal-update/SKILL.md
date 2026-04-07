@@ -1,0 +1,305 @@
+---
+name: portal-update
+description: |
+  Edit existing portal content — add tabs, update text, change structure, or refresh after a new meeting.
+  Trigger phrases: "update portal", "edit portal", "change the portal", "add a tab to", "update content for". (showpane)
+---
+
+## Preamble (run first)
+
+```bash
+# Read config
+CONFIG="$HOME/.showpane/config.json"
+if [ ! -f "$CONFIG" ]; then
+  echo "Showpane not configured. Run /portal setup first."
+  exit 1
+fi
+APP_PATH=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('app_path',''))" 2>/dev/null)
+DEPLOY_MODE=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('deploy_mode','docker'))" 2>/dev/null)
+ORG_SLUG=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('org_slug',''))" 2>/dev/null)
+APP_PATH="${SHOWPANE_APP_PATH:-$APP_PATH}"
+if [ -f "$APP_PATH/.env" ]; then set -a && source "$APP_PATH/.env" && set +a; fi
+DATABASE_URL="${DATABASE_URL:-}"
+if [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
+  echo "App dependencies not installed. Run: cd $APP_PATH && npm install"
+  exit 1
+fi
+SKILL_DIR="$(dirname "$APP_PATH")"
+SKILL_VERSION=$(cat "$SKILL_DIR/VERSION" 2>/dev/null || echo "unknown")
+echo "SHOWPANE: v$SKILL_VERSION | MODE: $DEPLOY_MODE | APP: $APP_PATH"
+LEARN_FILE="$HOME/.showpane/learnings.jsonl"
+[ -f "$LEARN_FILE" ] && echo "LEARNINGS: $(wc -l < "$LEARN_FILE" | tr -d ' ') loaded" || echo "LEARNINGS: 0"
+```
+
+## Steps
+
+### Step 1: Identify the portal to edit
+
+If the user provided a slug (e.g., `/portal update acme-health`), use it. Otherwise, ask which portal to update.
+
+Verify the portal exists by checking for the client component file:
+
+```bash
+ls "$APP_PATH/src/app/(portal)/client/<slug>/<slug>-client.tsx" 2>/dev/null
+```
+
+If the file doesn't exist, inform the user and suggest `/portal create <slug>` instead. If the slug directory exists but the client file has a different name, list the directory contents to find the correct file.
+
+### Step 2: Read the existing portal
+
+Read the full client component file:
+
+```bash
+cat "$APP_PATH/src/app/(portal)/client/<slug>/<slug>-client.tsx"
+```
+
+Also read the page.tsx for completeness:
+
+```bash
+cat "$APP_PATH/src/app/(portal)/client/<slug>/page.tsx"
+```
+
+Parse and understand the current portal structure:
+- How many tabs exist and what are their IDs and labels?
+- What content is in each tab?
+- What PortalShell props are set?
+- What icons are imported?
+
+### Step 3: Present current structure
+
+Show the user a concise summary of the portal's current state:
+
+```
+Portal: acme-health (Acme Health)
+
+  Tabs:
+    1. overview — "Services overview" (Presentation icon)
+    2. meetings — "Meetings" (CalendarDays icon)
+    3. documents — "Documents" (FileText icon, amber badge)
+
+  Contact: Jane Smith (Account Manager)
+  Last updated: 2 April 2026
+```
+
+This gives the user context before they describe what to change.
+
+### Step 4: Scope lock
+
+**CRITICAL: Only edit files within the portal's own directory.**
+
+Allowed files:
+- `$APP_PATH/src/app/(portal)/client/<slug>/page.tsx`
+- `$APP_PATH/src/app/(portal)/client/<slug>/<slug>-client.tsx`
+- Any other files within `$APP_PATH/src/app/(portal)/client/<slug>/`
+
+Do NOT modify:
+- `$APP_PATH/src/components/portal-shell.tsx` or any shared components
+- Other portals' directories
+- Files in `$APP_PATH/src/lib/`
+- Any files outside the portal's directory
+
+If the user's request would require changes to shared components, explain that this is outside the scope of a portal update and suggest they make those changes separately.
+
+### Step 5: Check learnings for user preferences
+
+Before making changes, read any relevant learnings from the learnings file:
+
+```bash
+if [ -f "$HOME/.showpane/learnings.jsonl" ]; then
+  grep '"portal-update"\|"portal-create"' "$HOME/.showpane/learnings.jsonl" | tail -10
+fi
+```
+
+Look for patterns that inform how to make edits:
+- Tab preferences (how many tabs the user typically wants)
+- Content density preferences (sparse vs. detailed)
+- Styling preferences (color accents, badge usage)
+- Structural patterns (timeline vs. bullet list for next steps)
+
+Apply these preferences when generating new content, but do not mention them to the user unless relevant.
+
+### Step 6: Understand the requested changes
+
+Ask the user what they want to change. Common requests and how to handle them:
+
+**Adding a new tab:**
+1. Ask for the tab name and what content it should contain
+2. Create a new function component for the tab content (e.g., `function PricingTab()`)
+3. Add the tab to the `tabs` array in the exported component
+4. Import any new icons needed
+5. Keep the tab count at or below 6
+
+**Updating existing content:**
+1. Identify which tab and section to update
+2. Make the targeted edit
+3. Preserve the existing structure and styling
+
+**Adding meeting notes from a new meeting:**
+1. If a transcript is provided (from Granola or pasted), analyze it for new discussion points, action items, and documents
+2. Add a new meeting section to the Meetings tab using the collapsible `<details>` pattern
+3. Update the Next Steps tab if new action items were discussed
+4. Update `lastUpdated` to today's date
+
+**Changing the tab order:**
+1. Reorder the `tabs` array — but keep overview/welcome as the first tab
+2. Update the `hideFooterOnTab` prop if the first tab changes
+
+**Removing a tab:**
+1. Remove the tab from the `tabs` array
+2. Remove the corresponding function component
+3. Clean up unused icon imports
+4. Ensure at least 2 tabs remain
+
+**Updating contact info or metadata:**
+1. Update the relevant PortalShell props
+2. Update any inline mentions of the contact in tab content
+
+### Step 7: Make the edits
+
+Apply the changes to the client component file. Follow the same conventions as `/portal create`:
+
+- Cards: `rounded-2xl border bg-white shadow-sm`
+- Card padding: `p-5 sm:p-6`
+- Section headings: `text-base font-bold tracking-tight text-gray-900`
+- Body text: `text-sm leading-relaxed text-gray-600`
+- Small text: `text-xs text-gray-500`
+- Responsive: use `sm:` breakpoints
+- Icons from `lucide-react` only
+
+When adding new content, match the visual weight and density of existing tabs. A portal with sparse, clean tabs should get sparse, clean new content — not suddenly dense data tables.
+
+### Step 8: Show diff before confirming
+
+After making edits, show the user a summary of what changed:
+
+- Which tabs were added, removed, or modified
+- What content was updated
+- Any prop changes on PortalShell
+
+If using git, show the actual diff:
+
+```bash
+cd "$APP_PATH" && git diff "src/app/(portal)/client/<slug>/"
+```
+
+Ask the user to confirm the changes look correct before considering the update complete.
+
+### Step 9: Update lastUpdated
+
+Update the `lastUpdated` prop on PortalShell to today's date in the format "7 April 2026". This signals to the client that the portal has fresh content.
+
+### Step 10: Open preview
+
+Check if the dev server is running:
+
+```bash
+lsof -i :3000 -sTCP:LISTEN -t 2>/dev/null
+```
+
+If running, open the portal:
+
+```bash
+open "http://localhost:3000/client/<slug>"
+```
+
+If a specific tab was updated, deep-link to it:
+
+```bash
+open "http://localhost:3000/client/<slug>#<tab_id>"
+```
+
+If not running, suggest starting the dev server with `/portal dev`.
+
+### Step 11: Record learning
+
+If the update reveals a pattern or preference, record it:
+
+```bash
+echo '{"skill":"portal-update","key":"<pattern>","insight":"<observation>","confidence":7,"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> "$HOME/.showpane/learnings.jsonl"
+```
+
+Examples of useful learnings:
+- "User prefers 3-tab portals over 5-tab"
+- "User always includes a Documents tab"
+- "User prefers numbered next steps over bullet points"
+- "User likes amber badges on action-required tabs"
+
+## Granola Enrichment for Updates
+
+When the user says something like "update the portal with the latest meeting" or "add notes from today's call", attempt Granola MCP integration:
+
+1. Try `list_meetings` to get recent meetings
+2. If available, show recent meetings and ask which one to add
+3. If selected, pull the transcript with `get_meeting_transcript`
+4. Analyze the transcript for new discussion points, action items, and documents
+5. Add a new meeting section to the Meetings tab (or create the tab if it doesn't exist)
+6. Update the Next Steps tab with any new action items
+7. Update `lastUpdated` to today's date
+
+If Granola is not available, ask the user to paste the transcript or describe the changes manually. Never fail because Granola is unavailable.
+
+## Content Pattern Reference
+
+When adding new content, use these patterns to match the existing portal style:
+
+**Meeting notes section** (collapsible):
+```tsx
+<MeetingSection title="Follow-up Call" defaultOpen={true}>
+  <ul className="space-y-2 text-sm text-gray-600">
+    <li className="flex gap-2.5">
+      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
+      Discussion point text here
+    </li>
+  </ul>
+</MeetingSection>
+```
+
+**Action item with status**:
+```tsx
+<li className="flex items-stretch gap-3 sm:gap-4">
+  <div className="flex flex-col items-center">
+    <span className={cn(
+      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
+      done ? "bg-green-500 text-white" : "bg-gray-900 text-white"
+    )}>
+      {done ? "✓" : index + 1}
+    </span>
+  </div>
+  <div className="pb-5">
+    <p className="text-sm font-semibold text-gray-900">Action title</p>
+    <p className="mt-0.5 text-sm leading-relaxed text-gray-500">Details here</p>
+  </div>
+</li>
+```
+
+**Document download card**:
+```tsx
+<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+  <div className="flex items-start gap-3">
+    <FileText className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+    <div>
+      <p className="text-sm font-medium text-gray-900">Document title</p>
+      <p className="mt-1 text-sm text-gray-500">Description or instructions</p>
+    </div>
+  </div>
+  <button type="button" className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-gray-900 px-5 py-2 text-xs font-semibold text-white transition-colors hover:bg-gray-800 sm:w-auto">
+    <Download className="h-3.5 w-3.5" />
+    Download PDF
+  </button>
+</div>
+```
+
+## Conventions
+
+- Scope lock: ONLY edit files in `$APP_PATH/src/app/(portal)/client/<slug>/`
+- Never modify shared components, other portals, or lib files
+- Always show the diff to the user before considering the update complete
+- Preserve existing styling patterns — match the visual density of existing tabs
+- Update `lastUpdated` on every content change
+- Keep tab count between 2 and 6
+- First tab must always be overview/welcome
+- Follow the same Tailwind class conventions as `/portal create`
+- If the user's request is ambiguous, ask for clarification rather than guessing
+- When adding meeting notes, use the collapsible `<details>` pattern from the example portal
+- When the user asks to "refresh" a portal, they typically mean update `lastUpdated` and add new content from a recent meeting — treat this as a meeting enrichment flow
+- If a portal has grown to 6 tabs and the user wants to add more, suggest consolidating related tabs instead of exceeding the maximum

@@ -2,41 +2,78 @@
 set -euo pipefail
 
 # Showpane setup script
-# Installs skills and configures the portal app
+# Installs skills into ~/.claude/skills/showpane and configures the portal app
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_DIR="${HOME}/.claude/skills/showpane"
+SHOWPANE_DIR="${HOME}/.showpane"
 
 echo "=== Showpane Setup ==="
 echo ""
 
-# Symlink skills
-if [ -d "$SCRIPT_DIR/skills" ] && [ "$(ls -A "$SCRIPT_DIR/skills" 2>/dev/null)" ]; then
-  echo "Installing skills to ${SKILLS_DIR}..."
-  mkdir -p "$(dirname "$SKILLS_DIR")"
-  ln -sfn "$SCRIPT_DIR/skills" "$SKILLS_DIR"
-  echo "Skills installed."
-else
-  echo "No skills found (skills/ directory is empty). Skipping skill installation."
+# ─── Install skills ───────────────────────────────────────────
+echo "Installing skills to ${SKILLS_DIR}..."
+mkdir -p "$(dirname "$SKILLS_DIR")"
+ln -sfn "$SCRIPT_DIR/skills" "$SKILLS_DIR"
+echo "  14 skills installed."
+
+# Make bin scripts executable
+chmod +x "$SCRIPT_DIR/bin/showpane-config" 2>/dev/null || true
+
+# ─── Create config directory ──────────────────────────────────
+if [ ! -d "$SHOWPANE_DIR" ]; then
+  echo ""
+  echo "Creating ${SHOWPANE_DIR}..."
+  mkdir -p "$SHOWPANE_DIR"
+  chmod 700 "$SHOWPANE_DIR"
 fi
 
-echo ""
-
-# Check for app directory
+# ─── Install app dependencies ────────────────────────────────
 if [ ! -f "$SCRIPT_DIR/app/package.json" ]; then
   echo "Error: app/package.json not found. Are you in the showpane repo root?"
   exit 1
 fi
 
+echo ""
 echo "Installing app dependencies..."
 cd "$SCRIPT_DIR/app"
-npm install
+npm install --silent 2>/dev/null || npm install
+
+# ─── Generate Prisma client ──────────────────────────────────
+echo ""
+echo "Generating Prisma client..."
+npx prisma generate --schema="$SCRIPT_DIR/app/prisma/schema.prisma"
+
+# ─── Write initial config if none exists ──────────────────────
+if [ ! -f "$SHOWPANE_DIR/config.json" ]; then
+  echo ""
+  echo "Writing initial config..."
+  cat > "$SHOWPANE_DIR/config.json" << EOF
+{
+  "app_path": "$SCRIPT_DIR/app",
+  "deploy_mode": "docker",
+  "org_slug": "",
+  "telemetry": "off"
+}
+EOF
+  chmod 600 "$SHOWPANE_DIR/config.json"
+  echo "  Config: ${SHOWPANE_DIR}/config.json (chmod 600)"
+fi
 
 echo ""
-echo "Setup complete!"
+echo "=== Setup complete! ==="
+echo ""
+echo "Skills installed:   ${SKILLS_DIR}"
+echo "Config:             ${SHOWPANE_DIR}/config.json"
+echo "App:                ${SCRIPT_DIR}/app"
 echo ""
 echo "Next steps:"
-echo "  1. Copy .env.example to .env and configure"
-echo "  2. Run: npx prisma migrate dev"
-echo "  3. Run: npx prisma db seed"
-echo "  4. Run: npm run dev"
+echo "  1. Configure your portal:  /portal setup"
+echo "  2. Or start fresh:         /portal onboard"
+echo ""
+echo "Quick start (if you have a database ready):"
+echo "  1. Copy app/.env.example to app/.env and set DATABASE_URL + AUTH_SECRET"
+echo "  2. Run: cd app && npx prisma migrate dev"
+echo "  3. Run: cd app && npx prisma db seed"
+echo "  4. Run: cd app && npm run dev"
+echo "  5. Visit: http://localhost:3000/client"

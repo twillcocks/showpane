@@ -2,10 +2,11 @@
 
 import { createInterface } from "node:readline";
 import { execSync, spawn, exec } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
 import { resolve, dirname, join } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 // ── ANSI helpers ──────────────────────────────────────────────────────────────
@@ -226,7 +227,96 @@ async function main() {
   });
 }
 
-main().catch((err) => {
-  error(String(err));
+// ── Login (device auth flow) ─────────────────────────────────────────────────
+
+const API_BASE = "https://app.showpane.com";
+
+async function login() {
+  printBanner();
+
+  blue("Authenticating with Showpane...");
+  console.log();
+
+  // 1. Init the device auth flow
+  const initRes = await fetch(`${API_BASE}/api/cli/init`, { method: "POST" });
+  if (!initRes.ok) {
+    throw new Error(`Failed to start auth flow (${initRes.status})`);
+  }
+
+  const { code, userCode, verificationUrl } = await initRes.json();
+
+  // 2. Show the user code
+  console.log(`  ${BOLD}Enter this code in your browser:${RESET}  ${BOLD}${GREEN}${userCode}${RESET}`);
+  console.log();
+
+  // 3. Open the browser
+  openBrowser(verificationUrl);
+  blue(`Opened ${verificationUrl}`);
+  console.log();
+  blue("Waiting for authorization...");
+
+  // 4. Poll for approval
+  const POLL_INTERVAL = 2000;
+  const TIMEOUT = 10 * 60 * 1000;
+  const start = Date.now();
+
+  while (Date.now() - start < TIMEOUT) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+
+    const pollRes = await fetch(`${API_BASE}/api/cli/poll?code=${code}`);
+
+    if (pollRes.status === 410) {
+      error("Code expired. Please try again.");
+      process.exit(1);
+    }
+
+    if (!pollRes.ok && pollRes.status !== 202) {
+      throw new Error(`Poll failed (${pollRes.status})`);
+    }
+
+    const data = await pollRes.json();
+
+    if (data.status === "approved") {
+      // 5. Save credentials
+      const configDir = join(homedir(), ".showpane");
+      mkdirSync(configDir, { recursive: true });
+
+      const configPath = join(configDir, "config.json");
+      writeFileSync(
+        configPath,
+        JSON.stringify(
+          {
+            accessToken: data.accessToken,
+            orgSlug: data.orgSlug,
+            portalUrl: data.portalUrl,
+            app_path: process.cwd(),
+          },
+          null,
+          2
+        )
+      );
+
+      console.log();
+      green(`Authenticated! Connected to ${BOLD}${data.orgSlug}${RESET}`);
+      console.log();
+      return;
+    }
+  }
+
+  error("Authentication timed out. Please try again.");
   process.exit(1);
-});
+}
+
+// ── Entry point ──────────────────────────────────────────────────────────────
+
+if (process.argv[2] === "login") {
+  login().catch((err) => {
+    error(String(err));
+    process.exit(1);
+  });
+} else {
+  main().catch((err) => {
+    error(String(err));
+    process.exit(1);
+  });
+}

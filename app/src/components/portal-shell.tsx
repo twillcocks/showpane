@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Check, Copy, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,11 +41,31 @@ export type PortalShellProps = {
   eventsEndpoint?: string;
 };
 
-function trackEvent(eventsEndpoint: string, event: string, detail?: string) {
+// ── Visitor ID (sp_visitor cookie, 30-day, first-party UUID) ─────────────────
+
+function getOrCreateVisitorId(): string {
+  if (typeof document === "undefined") return "";
+  const match = document.cookie.match(/(?:^|; )sp_visitor=([^;]+)/);
+  if (match) return match[1];
+  const id = crypto.randomUUID();
+  const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
+  document.cookie = `sp_visitor=${id}; path=/; expires=${expires}; SameSite=Lax`;
+  return id;
+}
+
+// ── Event tracking ───────────────────────────────────────────────────────────
+
+function trackEvent(
+  eventsEndpoint: string,
+  event: string,
+  detail?: string,
+  visitorId?: string,
+  metadata?: Record<string, unknown>
+) {
   fetch(eventsEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event, detail }),
+    body: JSON.stringify({ event, detail, visitorId, metadata }),
   }).catch(() => {});
 }
 
@@ -54,6 +74,80 @@ function readHashTab(tabIds: string[]): string {
   const hash = window.location.hash.replace("#", "");
   return tabIds.includes(hash) ? hash : tabIds[0] ?? "";
 }
+
+// ── Section time tracking via Intersection Observer ──────────────────────────
+
+function useSectionTimeTracking(
+  activeTab: string,
+  eventsEndpoint: string,
+  visitorId: string
+) {
+  const sectionTimers = useRef<Map<string, number>>(new Map());
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  const flushSectionTime = useCallback(
+    (sectionId: string) => {
+      const startTime = sectionTimers.current.get(sectionId);
+      if (!startTime) return;
+      const duration = Math.round((Date.now() - startTime) / 1000);
+      sectionTimers.current.delete(sectionId);
+      if (duration >= 2) {
+        trackEvent(eventsEndpoint, "section_time", sectionId, visitorId, {
+          durationSeconds: duration,
+        });
+      }
+    },
+    [eventsEndpoint, visitorId]
+  );
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+
+    // Flush all timers from previous tab
+    for (const sectionId of sectionTimers.current.keys()) {
+      flushSectionTime(sectionId);
+    }
+
+    observerRef.current?.disconnect();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const sectionId = entry.target.getAttribute("data-section-id");
+          if (!sectionId) continue;
+
+          if (entry.isIntersecting) {
+            if (!sectionTimers.current.has(sectionId)) {
+              sectionTimers.current.set(sectionId, Date.now());
+              trackEvent(eventsEndpoint, "section_view", sectionId, visitorId);
+            }
+          } else {
+            flushSectionTime(sectionId);
+          }
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    observerRef.current = observer;
+
+    // Observe all elements with data-section-id within #main-content
+    const mainContent = document.getElementById("main-content");
+    if (mainContent) {
+      const sections = mainContent.querySelectorAll("[data-section-id]");
+      sections.forEach((el) => observer.observe(el));
+    }
+
+    return () => {
+      for (const sectionId of sectionTimers.current.keys()) {
+        flushSectionTime(sectionId);
+      }
+      observer.disconnect();
+    };
+  }, [activeTab, eventsEndpoint, visitorId, flushSectionTime]);
+}
+
+// ── PortalShell component ────────────────────────────────────────────────────
 
 export function PortalShell({
   companyName,
@@ -80,6 +174,7 @@ export function PortalShell({
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const [visitorId] = useState(() => getOrCreateVisitorId());
 
   useEffect(() => {
     const syncFromHash = () => setActiveTab(readHashTab(tabIds));
@@ -90,7 +185,7 @@ export function PortalShell({
   }, []);
 
   useEffect(() => {
-    trackEvent(resolvedEventsEndpoint, "portal_view");
+    trackEvent(resolvedEventsEndpoint, "portal_view", undefined, visitorId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -100,11 +195,13 @@ export function PortalShell({
     return () => window.clearTimeout(timeout);
   }, [copied, copyError]);
 
+  useSectionTimeTracking(activeTab, resolvedEventsEndpoint, visitorId);
+
   function switchTab(tab: string) {
     setActiveTab(tab);
     window.history.replaceState(null, "", `#${tab}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
-    trackEvent(resolvedEventsEndpoint, "tab_switch", tab);
+    trackEvent(resolvedEventsEndpoint, "tab_switch", tab, visitorId);
   }
 
   async function handleShare() {
@@ -252,7 +349,18 @@ export function PortalShell({
               ) : null}
             </div>
           </div>
-          <p className="pb-3 text-center text-[11px] text-gray-300">Last updated {lastUpdated}</p>
+          <div className="flex items-center justify-center gap-2 pb-3">
+            <p className="text-[11px] text-gray-300">Last updated {lastUpdated}</p>
+            <span className="text-gray-200">·</span>
+            <a
+              href="https://showpane.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-gray-300 transition-colors hover:text-gray-400"
+            >
+              Powered by Showpane
+            </a>
+          </div>
         </footer>
       ) : null}
     </div>

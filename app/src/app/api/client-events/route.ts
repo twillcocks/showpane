@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedPortal } from "@/lib/client-auth";
 import { prisma } from "@/lib/db";
 
-const VALID_EVENTS = new Set(["portal_view", "tab_switch"]);
+const VALID_EVENTS = new Set([
+  "portal_view",
+  "tab_switch",
+  "section_view",
+  "section_time",
+  "file_download",
+  "share_link_access",
+]);
 
 export async function POST(req: NextRequest) {
   const portal = await getAuthenticatedPortal(req);
@@ -17,7 +24,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { event, detail } = body as { event?: string; detail?: string };
+  const { event, detail, visitorId, metadata } = body as {
+    event?: string;
+    detail?: string;
+    visitorId?: string;
+    metadata?: Record<string, unknown>;
+  };
 
   if (!event || !VALID_EVENTS.has(event)) {
     return NextResponse.json({ error: "Invalid event type" }, { status: 400 });
@@ -40,6 +52,8 @@ export async function POST(req: NextRequest) {
         portalId: portalRecord.id,
         event,
         detail: detail || null,
+        visitorId: visitorId || null,
+        metadata: metadata ? JSON.stringify(metadata) : null,
         ipAddress: ip,
       },
     });

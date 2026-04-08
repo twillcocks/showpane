@@ -91,12 +91,15 @@ model PortalEvent {
   portalId    String
   event       String
   detail      String?
+  visitorId   String?
+  metadata    String?
   ipAddress   String?
   createdAt   DateTime     @default(now())
 
   portal      ClientPortal @relation(fields: [portalId], references: [id], onDelete: Cascade)
 
   @@index([portalId, createdAt])
+  @@index([visitorId])
 }
 
 model PortalFile {

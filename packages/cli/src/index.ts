@@ -174,6 +174,14 @@ async function main() {
     process.exit(1);
   }
 
+  // 5b. Seed example portal (non-fatal)
+  try {
+    run("npx tsx prisma/seed.ts", appDir);
+    green("Example portal seeded");
+  } catch {
+    blue("Skipped example portal (seed failed — not a problem)");
+  }
+
   // 6. Find a free port
   const port = await findFreePort(3000);
   green(`Server starting on port ${port}`);
@@ -181,6 +189,14 @@ async function main() {
   // 7. Start dev server
   const url = `http://localhost:${port}`;
   blue(`Opening ${url}`);
+  console.log();
+  console.log(`  ${GREEN}Ready!${RESET} Open Claude Code and create your first portal:`);
+  console.log();
+  console.log(`    ${DIM}cd ${dirName}/app${RESET}`);
+  console.log(`    ${BOLD}claude${RESET}`);
+  console.log(`    ${DIM}> Create a portal for my call with [client name]${RESET}`);
+  console.log();
+  console.log(`  ${DIM}Don't have Claude Code? Install from https://claude.ai/code${RESET}`);
   console.log();
 
   const devServer = spawn("npm", ["run", "dev"], {

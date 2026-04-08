@@ -8,7 +8,7 @@ Generate professional client portals in minutes using Claude Code.
 npx showpane
 ```
 
-That's it. One command sets up everything: SQLite database, dependencies, dev server. Your browser opens to a welcome page that teaches you the next step.
+One command sets up everything: SQLite database, dependencies, dev server. Your browser opens to a welcome page that teaches you the next step.
 
 Then in Claude Code:
 
@@ -18,17 +18,28 @@ Create a portal for my call with Acme Health
 
 Claude Code creates a branded portal with meeting notes, next steps, and documents. Preview it at `localhost:3000/client/acme-health`.
 
-## How It Works
+## Two Modes
 
-1. **`npx showpane`** — Installs locally with SQLite (zero config)
-2. **Claude Code skills** — 14 slash commands for creating, managing, and deploying portals
-3. **`/portal deploy`** — Self-host with Docker (free) or upgrade to Showpane Cloud ($29/mo)
+### Self-Hosted (Free)
+Run on your own infrastructure. Unlimited portals, single operator.
 
-Each client gets a bespoke React page. Claude Code IS the content editor. No CMS, no admin dashboard. The skill pack teaches Claude the portal conventions and Claude generates custom content for each client.
+```bash
+npx showpane           # Local dev with SQLite
+docker compose up -d   # Production with PostgreSQL + Caddy
+```
+
+### Showpane Cloud ($29/mo)
+Hosted at `orgname.showpane.com` with engagement intelligence.
+
+```
+claude /portal deploy   # Choose "Cloud" when prompted
+```
+
+**Cloud includes:** Real-time activity feed, visitor tracking, per-section time analytics, email alerts, team access (multiple operators), 1-year analytics retention.
 
 ## Skills
 
-Managed via Claude Code slash commands:
+14 Claude Code slash commands for portal management:
 
 | Command | Description |
 |---------|-------------|
@@ -59,8 +70,6 @@ Templates are reference implementations. `/portal create` reads them for inspira
 
 ## Self-Hosting with Docker
 
-For production deployment on your own infrastructure:
-
 ```bash
 cd app
 cp .env.example .env
@@ -79,33 +88,47 @@ Visit http://localhost:8080 and log in with `example` / `demo123`.
 cd app
 npm install
 cp .env.example .env
-# For local dev: DATABASE_URL="file:./dev.db" (SQLite)
-# For production: DATABASE_URL="postgresql://..." (PostgreSQL)
+# DATABASE_URL="file:./dev.db" for local dev (SQLite)
 
-npx prisma migrate dev
+npx prisma db push
 npm run dev
 ```
 
 ## Architecture
 
 - **Next.js 15** with App Router
-- **Prisma** with SQLite (local dev) or PostgreSQL (production)
-- **HMAC-SHA256** stateless auth via Web Crypto
-- **Docker Compose** for self-hosted deployment
+- **Prisma** with PostgreSQL (canonical) or SQLite (local dev via `db push`)
+- **HMAC-SHA256** stateless auth with org-scoped tokens
+- **Docker Compose** for self-hosted deployment (PostgreSQL + Caddy)
 - **Claude Code skill pack** for portal management
+- **Intersection Observer** for per-section time tracking
+- **First-party visitor cookie** (`sp_visitor`) for session-level analytics
 
 ## Project Structure
 
 ```
 showpane/
+├── app/             — Next.js portal application (OSS)
+├── platform/        — Showpane Cloud (app.showpane.com)
 ├── packages/cli/    — npx showpane installer
 ├── skills/          — 14 SKILL.md files (Claude Code slash commands)
 ├── bin/             — TypeScript utility scripts (DB operations)
 ├── templates/       — Portal reference implementations
-├── app/             — Next.js portal application
 ├── setup            — Manual installation script
 └── DESIGN.md        — Design system tokens and patterns
 ```
+
+### Cloud Platform (`platform/`)
+
+The hosted platform at app.showpane.com. Separate Next.js app with:
+
+- **Clerk** auth (signup/login/team management)
+- **Stripe** billing ($29/mo flat, 7-day trial)
+- **Supabase** PostgreSQL with RLS
+- **Vercel Platforms API** for portal provisioning
+- **Resend** for email alerts
+- Engagement dashboard with real-time activity feed
+- CLI device auth for `./setup --cloud`
 
 ## License
 

@@ -53,6 +53,15 @@ function getOrCreateVisitorId(): string {
   return id;
 }
 
+// ── Cloud events support ─────────────────────────────────────────────────────
+
+declare global {
+  interface Window {
+    __SHOWPANE_CLOUD_EVENTS_URL__?: string;
+    __SHOWPANE_CLOUD_EVENTS_TOKEN__?: string;
+  }
+}
+
 // ── Event tracking ───────────────────────────────────────────────────────────
 
 function trackEvent(
@@ -62,9 +71,20 @@ function trackEvent(
   visitorId?: string,
   metadata?: Record<string, unknown>
 ) {
-  fetch(eventsEndpoint, {
+  const cloudUrl =
+    typeof window !== "undefined" ? window.__SHOWPANE_CLOUD_EVENTS_URL__ : undefined;
+  const cloudToken =
+    typeof window !== "undefined" ? window.__SHOWPANE_CLOUD_EVENTS_TOKEN__ : undefined;
+
+  const url = cloudUrl || eventsEndpoint;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (cloudUrl && cloudToken) {
+    headers["Authorization"] = `Bearer ${cloudToken}`;
+  }
+
+  fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ event, detail, visitorId, metadata }),
   }).catch(() => {});
 }

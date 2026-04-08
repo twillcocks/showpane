@@ -18,7 +18,7 @@ APP_PATH=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('a
 DEPLOY_MODE=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('deploy_mode','docker'))" 2>/dev/null)
 ORG_SLUG=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('orgSlug','') or d.get('org_slug',''))" 2>/dev/null)
 CLOUD_API_TOKEN=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('cloud',d).get('api_token', d.get('accessToken','')))" 2>/dev/null)
-CLOUD_PROJECT_ID=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('cloud',{}).get('vercel_project_id',''))" 2>/dev/null)
+CLOUD_PROJECT_ID=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('cloud',{}).get('vercel_project_id','') or d.get('vercelProjectId',''))" 2>/dev/null)
 CLOUD_ORG_SLUG=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('cloud',d).get('org_slug', d.get('orgSlug','')))" 2>/dev/null)
 CLOUD_PORTAL_URL=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('cloud',d).get('portal_url', d.get('portalUrl','')))" 2>/dev/null)
 APP_PATH="${SHOWPANE_APP_PATH:-$APP_PATH}"

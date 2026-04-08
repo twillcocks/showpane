@@ -289,7 +289,9 @@ async function login() {
             accessToken: data.accessToken,
             orgSlug: data.orgSlug,
             portalUrl: data.portalUrl,
-            app_path: process.cwd(),
+            vercelProjectId: data.vercelProjectId,
+            app_path: join(process.cwd(), "app"),
+            deploy_mode: "cloud",
           },
           null,
           2

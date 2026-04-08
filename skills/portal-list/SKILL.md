@@ -17,7 +17,7 @@ if [ ! -f "$CONFIG" ]; then
 fi
 APP_PATH=$(cat "$CONFIG" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('app_path',''))" 2>/dev/null)
 DEPLOY_MODE=$(cat "$CONFIG" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('deploy_mode','docker'))" 2>/dev/null)
-ORG_SLUG=$(cat "$CONFIG" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('org_slug',''))" 2>/dev/null)
+ORG_SLUG=$(cat "$CONFIG" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('orgSlug','') or d.get('org_slug',''))" 2>/dev/null)
 APP_PATH="${SHOWPANE_APP_PATH:-$APP_PATH}"
 if [ -f "$APP_PATH/.env" ]; then set -a && source "$APP_PATH/.env" && set +a; fi
 DATABASE_URL="${DATABASE_URL:-}"
@@ -167,7 +167,7 @@ The `lastUpdated` timestamp reflects when the portal's database record was last 
 
 In v1, Showpane supports a single organization per installation. The `org_id` parameter is always derived from the config. Future versions may support multiple organizations, at which point the list skill would accept an `--org` flag to filter.
 
-If the user asks about portals in a different organization, explain: "Showpane is configured for organization '<org_slug>'. To work with a different org, update your config: edit ~/.showpane/config.json and change the org_slug value, or set it via environment variable."
+If the user asks about portals in a different organization, explain: "Showpane is configured for organization '<orgSlug>'. To work with a different org, update your config: edit ~/.showpane/config.json and change the orgSlug value, or set it via environment variable."
 
 ## Output as Input
 

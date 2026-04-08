@@ -8,6 +8,74 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_DIR="${HOME}/.claude/skills/showpane"
 SHOWPANE_DIR="${HOME}/.showpane"
 
+# ─── Argument parsing ────────────────────────────────────────
+CLOUD_MODE=false
+for arg in "$@"; do
+  case "$arg" in
+    --cloud) CLOUD_MODE=true ;;
+  esac
+done
+
+# ─── Cloud setup flow ────────────────────────────────────────
+if [ "$CLOUD_MODE" = true ]; then
+  echo "=== Setting up Showpane Cloud... ==="
+  echo ""
+
+  # Install skills (needed for both modes)
+  echo "Installing skills to ${SKILLS_DIR}..."
+  mkdir -p "$(dirname "$SKILLS_DIR")"
+  ln -sfn "$SCRIPT_DIR/skills" "$SKILLS_DIR"
+  echo "  14 skills installed."
+
+  # Ensure config directory exists
+  if [ ! -d "$SHOWPANE_DIR" ]; then
+    echo ""
+    echo "Creating ${SHOWPANE_DIR}..."
+    mkdir -p "$SHOWPANE_DIR"
+    chmod 700 "$SHOWPANE_DIR"
+  fi
+
+  # Run the CLI login flow
+  echo ""
+  if command -v showpane &>/dev/null; then
+    showpane login
+  elif [ -f "$SCRIPT_DIR/packages/cli/src/index.ts" ]; then
+    npx --yes tsx "$SCRIPT_DIR/packages/cli/src/index.ts" login
+  else
+    npx --yes showpane login
+  fi
+
+  # After login, set deploy_mode to "cloud" in the config
+  if [ -f "$SHOWPANE_DIR/config.json" ]; then
+    # Use node to merge deploy_mode into existing config (preserves other keys)
+    node -e "
+      const fs = require('fs');
+      const p = '$SHOWPANE_DIR/config.json';
+      const cfg = JSON.parse(fs.readFileSync(p, 'utf-8'));
+      cfg.deploy_mode = 'cloud';
+      fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + '\n');
+    "
+  else
+    # Login didn't create a config (shouldn't happen), write a minimal one
+    cat > "$SHOWPANE_DIR/config.json" << EOF
+{
+  "deploy_mode": "cloud"
+}
+EOF
+    chmod 600 "$SHOWPANE_DIR/config.json"
+  fi
+
+  echo ""
+  echo "=== Cloud setup complete! ==="
+  echo ""
+  echo "You're connected to Showpane Cloud!"
+  echo "Create portals with Claude Code, then deploy with /portal deploy."
+  echo ""
+  exit 0
+fi
+
+# ─── Self-hosted setup flow (default) ────────────────────────
+
 echo "=== Showpane Setup ==="
 echo ""
 
@@ -52,7 +120,7 @@ if [ ! -f "$SHOWPANE_DIR/config.json" ]; then
 {
   "app_path": "$SCRIPT_DIR/app",
   "deploy_mode": "docker",
-  "org_slug": "",
+  "orgSlug": "",
   "telemetry": "off"
 }
 EOF

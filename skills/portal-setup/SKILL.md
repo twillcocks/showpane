@@ -17,7 +17,7 @@ if [ -f "$CONFIG" ]; then
   EXISTING_CONFIG=true
   APP_PATH=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('app_path',''))" 2>/dev/null || true)
   DEPLOY_MODE=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('deploy_mode',''))" 2>/dev/null || true)
-  ORG_SLUG=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('org_slug',''))" 2>/dev/null || true)
+  ORG_SLUG=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('orgSlug','') or d.get('org_slug',''))" 2>/dev/null || true)
   echo "EXISTING_CONFIG: true"
   echo "APP_PATH: $APP_PATH"
   echo "DEPLOY_MODE: $DEPLOY_MODE"
@@ -199,7 +199,7 @@ cat > "$HOME/.showpane/config.json" << 'CONFIGEOF'
 {
   "app_path": "<resolved_absolute_path>",
   "deploy_mode": "<docker|vercel>",
-  "org_slug": "<org_slug>",
+  "orgSlug": "<org_slug>",
   "telemetry": "<community|anonymous|off>"
 }
 CONFIGEOF
@@ -252,7 +252,7 @@ Never silently continue past a failure. Each step depends on the previous step s
 
 - Never store DATABASE_URL or AUTH_SECRET in config.json — these live in the app's `.env` file
 - Config file permissions must be 600 (owner read/write only)
-- The org_slug in config.json determines which Organization record is used by all other skills
+- The orgSlug in config.json determines which Organization record is used by all other skills
 - All user-facing output should be concise and scannable — use indented key-value pairs, not paragraphs
 - If any step fails, provide a clear error message and suggest how to fix it, but do not silently continue
 - The setup wizard is interactive — ask one question at a time, don't dump all questions at once

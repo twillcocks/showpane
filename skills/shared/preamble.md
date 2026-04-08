@@ -10,7 +10,7 @@ SHOWPANE_CONFIG="${HOME}/.showpane/config.json"
 if [ -f "$SHOWPANE_CONFIG" ]; then
   _cfg_app_path=$(python3 -c "import json; d=json.load(open('$SHOWPANE_CONFIG')); print(d.get('app_path',''))" 2>/dev/null || true)
   _cfg_deploy_mode=$(python3 -c "import json; d=json.load(open('$SHOWPANE_CONFIG')); print(d.get('deploy_mode',''))" 2>/dev/null || true)
-  _cfg_org_slug=$(python3 -c "import json; d=json.load(open('$SHOWPANE_CONFIG')); print(d.get('org_slug',''))" 2>/dev/null || true)
+  _cfg_org_slug=$(python3 -c "import json; d=json.load(open('$SHOWPANE_CONFIG')); print(d.get('orgSlug','') or d.get('org_slug',''))" 2>/dev/null || true)
 fi
 
 export APP_PATH="${SHOWPANE_APP_PATH:-${_cfg_app_path:-}}"

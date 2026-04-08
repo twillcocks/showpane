@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Reference portal — the /portal create skill reads this file as the quality
+ * and style guide when generating new portals. Keep it polished.
+ * Login: username "example", password "demo123" (seeded by prisma/seed.ts)
+ */
+
 import { type ReactNode } from "react";
 import { BarChart3, CalendarDays, ChevronDown, Download, FileText, Presentation } from "lucide-react";
 import { cn } from "@/lib/utils";

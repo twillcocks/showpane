@@ -88,13 +88,13 @@ Read the chosen template file from `$SKILL_DIR/templates/` for structural inspir
 cat "$SKILL_DIR/templates/sales-followup/sales-followup-client.tsx"
 ```
 
-If the template directory doesn't exist yet, fall back to reading the example portal:
+Always also read the example portal as your quality and style reference:
 
 ```bash
 cat "$APP_PATH/src/app/(portal)/client/example/example-client.tsx"
 ```
 
-Templates are inspiration, not rigid scaffolds. Adapt the structure to fit the actual content.
+The template provides content structure. The example provides quality and styling. Match the example's patterns: card styles, typography, spacing, responsive breakpoints. Templates are inspiration, not rigid scaffolds. Adapt the structure to fit the actual content.
 
 ### Step 4: Analyze transcript (if available)
 

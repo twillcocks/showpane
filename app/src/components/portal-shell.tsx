@@ -62,6 +62,12 @@ declare global {
   }
 }
 
+function getPortalSlug(): string {
+  if (typeof window === "undefined") return "";
+  const match = window.location.pathname.match(/^\/client\/([^/]+)/);
+  return match?.[1] || "";
+}
+
 // ── Event tracking ───────────────────────────────────────────────────────────
 
 function trackEvent(
@@ -76,17 +82,28 @@ function trackEvent(
   const cloudToken =
     typeof window !== "undefined" ? window.__SHOWPANE_CLOUD_EVENTS_TOKEN__ : undefined;
 
-  const url = cloudUrl || eventsEndpoint;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (cloudUrl && cloudToken) {
-    headers["Authorization"] = `Bearer ${cloudToken}`;
+    fetch(cloudUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${cloudToken}`,
+      },
+      body: JSON.stringify({
+        portalSlug: getPortalSlug(),
+        visitorId,
+        eventType: event,
+        sectionName: detail || null,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+      }),
+    }).catch(() => {});
+  } else {
+    fetch(eventsEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event, detail, visitorId, metadata }),
+    }).catch(() => {});
   }
-
-  fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ event, detail, visitorId, metadata }),
-  }).catch(() => {});
 }
 
 function readHashTab(tabIds: string[]): string {

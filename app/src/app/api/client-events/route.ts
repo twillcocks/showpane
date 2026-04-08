@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedPortal } from "@/lib/client-auth";
+import { getClientPortalId } from "@/lib/client-portals";
 import { prisma } from "@/lib/db";
 
 const VALID_EVENTS = new Set([
@@ -41,15 +42,12 @@ export async function POST(req: NextRequest) {
     "unknown";
 
   // Look up portal by org-scoped slug to get its ID
-  const portalRecord = await prisma.clientPortal.findFirst({
-    where: { organizationId: portal.orgId, slug: portal.slug, isActive: true },
-    select: { id: true },
-  });
+  const portalId = await getClientPortalId(portal.orgId, portal.slug);
 
-  if (portalRecord) {
+  if (portalId) {
     await prisma.portalEvent.create({
       data: {
-        portalId: portalRecord.id,
+        portalId,
         event,
         detail: detail || null,
         visitorId: visitorId || null,

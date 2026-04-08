@@ -38,6 +38,18 @@ export async function getClientPortalByUsername(
   });
 }
 
+/** Look up the portal ID by org-scoped slug. */
+export async function getClientPortalId(
+  organizationId: string,
+  slug: string
+): Promise<string | null> {
+  const portal = await prisma.clientPortal.findFirst({
+    where: { organizationId, slug, isActive: true },
+    select: { id: true },
+  });
+  return portal?.id ?? null;
+}
+
 /** Validate login credentials. Returns the matching slug or null. */
 export async function validateClientLogin(
   organizationId: string,
@@ -62,10 +74,19 @@ export async function getCredentialVersion(
 
 /**
  * Resolve the organizationId for the current request context.
+ * Cloud: each Vercel project has ORG_ID set during provisioning.
  * Self-hosted: returns the single org in the DB.
- * Cloud: caller provides orgId from subdomain resolution.
  */
 export async function resolveDefaultOrganizationId(): Promise<string | null> {
+  // Cloud: each Vercel project has ORG_ID set during provisioning
+  if (process.env.ORG_ID) {
+    const org = await prisma.organization.findUnique({
+      where: { id: process.env.ORG_ID },
+      select: { id: true },
+    });
+    return org?.id ?? null;
+  }
+  // Self-hosted: use the single org in the DB
   const org = await prisma.organization.findFirst({
     select: { id: true },
     orderBy: { createdAt: "asc" },

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import { saveFile, getStoragePath, StorageError } from "@/lib/storage";
-import { resolveDefaultOrganizationId } from "@/lib/client-portals";
+import { resolveDefaultOrganizationId, getClientPortalId } from "@/lib/client-portals";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -46,12 +46,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No organization configured" }, { status: 503 });
   }
 
-  const portal = await prisma.clientPortal.findFirst({
-    where: { organizationId: orgId, slug: portalSlug, isActive: true },
-    select: { id: true },
-  });
+  const portalId = await getClientPortalId(orgId, portalSlug);
 
-  if (!portal) {
+  if (!portalId) {
     return NextResponse.json({ error: "Portal not found" }, { status: 404 });
   }
 
@@ -73,7 +70,7 @@ export async function POST(req: NextRequest) {
     const record = await prisma.portalFile.upsert({
       where: { storagePath },
       update: { filename, mimeType, size: file.size, uploadedBy: "operator", uploadedAt: new Date() },
-      create: { portalId: portal.id, filename, mimeType, storagePath, size: file.size, uploadedBy: "operator" },
+      create: { portalId, filename, mimeType, storagePath, size: file.size, uploadedBy: "operator" },
     });
 
     console.log(JSON.stringify({ event: "file_upload", slug: portalSlug, filename, size: file.size, uploadedBy: "operator" }));

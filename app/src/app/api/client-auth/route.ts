@@ -60,8 +60,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  // Resolve organization — self-hosted uses the single org in DB
-  // Cloud will resolve from subdomain (added in Phase 2)
+  // Resolve organization — self-hosted uses first org, cloud reads ORG_ID env var
   const orgId = await resolveDefaultOrganizationId();
   if (!orgId) {
     return NextResponse.json({ error: "No organization configured" }, { status: 503 });

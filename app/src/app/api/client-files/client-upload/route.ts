@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedPortal } from "@/lib/client-auth";
+import { getClientPortalId } from "@/lib/client-portals";
 import { prisma } from "@/lib/db";
 import { saveFile, getStoragePath, StorageError } from "@/lib/storage";
 
@@ -32,12 +33,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "File too large (max 50MB)" }, { status: 413 });
   }
 
-  const portalRecord = await prisma.clientPortal.findFirst({
-    where: { organizationId: portal.orgId, slug: portal.slug, isActive: true },
-    select: { id: true },
-  });
+  const portalId = await getClientPortalId(portal.orgId, portal.slug);
 
-  if (!portalRecord) {
+  if (!portalId) {
     return NextResponse.json({ error: "Portal not found" }, { status: 404 });
   }
 
@@ -59,7 +57,7 @@ export async function POST(req: NextRequest) {
     const record = await prisma.portalFile.upsert({
       where: { storagePath },
       update: { filename, mimeType, size: file.size, uploadedBy: "client", uploadedAt: new Date() },
-      create: { portalId: portalRecord.id, filename, mimeType, storagePath, size: file.size, uploadedBy: "client" },
+      create: { portalId: portalId, filename, mimeType, storagePath, size: file.size, uploadedBy: "client" },
     });
 
     console.log(JSON.stringify({ event: "file_upload", slug: portal.slug, filename, size: file.size, uploadedBy: "client" }));

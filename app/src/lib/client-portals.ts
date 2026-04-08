@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 
 type ClientPortalRow = {
+  organizationId: string;
   slug: string;
   companyName: string;
   username: string;
@@ -8,44 +9,42 @@ type ClientPortalRow = {
   credentialVersion: string;
 };
 
+const PORTAL_SELECT = {
+  organizationId: true,
+  slug: true,
+  companyName: true,
+  username: true,
+  passwordHash: true,
+  credentialVersion: true,
+} as const;
+
 export async function getClientPortalBySlug(
+  organizationId: string,
   slug: string
 ): Promise<ClientPortalRow | null> {
-  const portal = await prisma.clientPortal.findFirst({
-    where: { slug, isActive: true },
-    select: {
-      slug: true,
-      companyName: true,
-      username: true,
-      passwordHash: true,
-      credentialVersion: true,
-    },
+  return prisma.clientPortal.findFirst({
+    where: { organizationId, slug, isActive: true },
+    select: PORTAL_SELECT,
   });
-  return portal;
 }
 
 export async function getClientPortalByUsername(
+  organizationId: string,
   username: string
 ): Promise<ClientPortalRow | null> {
-  const portal = await prisma.clientPortal.findFirst({
-    where: { username, isActive: true },
-    select: {
-      slug: true,
-      companyName: true,
-      username: true,
-      passwordHash: true,
-      credentialVersion: true,
-    },
+  return prisma.clientPortal.findFirst({
+    where: { organizationId, username, isActive: true },
+    select: PORTAL_SELECT,
   });
-  return portal;
 }
 
 /** Validate login credentials. Returns the matching slug or null. */
 export async function validateClientLogin(
+  organizationId: string,
   username: string,
   password: string
 ): Promise<string | null> {
-  const portal = await getClientPortalByUsername(username);
+  const portal = await getClientPortalByUsername(organizationId, username);
   if (!portal) return null;
   const bcrypt = await import("bcryptjs");
   const match = await bcrypt.compare(password, portal.passwordHash);
@@ -54,8 +53,22 @@ export async function validateClientLogin(
 
 /** Get the credential version string for token signing/verification. */
 export async function getCredentialVersion(
+  organizationId: string,
   slug: string
 ): Promise<string | null> {
-  const portal = await getClientPortalBySlug(slug);
+  const portal = await getClientPortalBySlug(organizationId, slug);
   return portal?.credentialVersion ?? null;
+}
+
+/**
+ * Resolve the organizationId for the current request context.
+ * Self-hosted: returns the single org in the DB.
+ * Cloud: caller provides orgId from subdomain resolution.
+ */
+export async function resolveDefaultOrganizationId(): Promise<string | null> {
+  const org = await prisma.organization.findFirst({
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return org?.id ?? null;
 }

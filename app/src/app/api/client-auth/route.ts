@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateClientLogin } from "@/lib/client-portals";
+import { validateClientLogin, resolveDefaultOrganizationId } from "@/lib/client-portals";
 import {
   isClientAuthConfigured,
   signSessionToken,
@@ -60,12 +60,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  const slug = await validateClientLogin(username, password);
+  // Resolve organization — self-hosted uses the single org in DB
+  // Cloud will resolve from subdomain (added in Phase 2)
+  const orgId = await resolveDefaultOrganizationId();
+  if (!orgId) {
+    return NextResponse.json({ error: "No organization configured" }, { status: 503 });
+  }
+
+  const slug = await validateClientLogin(orgId, username, password);
   if (!slug) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  const token = await signSessionToken(slug);
+  const token = await signSessionToken(orgId, slug);
   if (!token) {
     return NextResponse.json({ error: "Unable to create session" }, { status: 500 });
   }

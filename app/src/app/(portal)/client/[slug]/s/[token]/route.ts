@@ -13,7 +13,7 @@ export async function GET(
   }
 
   // Mint a session token so the user stays logged in
-  const sessionToken = await signSessionToken(slug);
+  const sessionToken = await signSessionToken(verified.orgId, slug);
   if (!sessionToken) {
     return NextResponse.redirect(new URL("/client", req.url));
   }

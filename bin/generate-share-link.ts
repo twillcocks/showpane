@@ -41,6 +41,7 @@ async function main() {
     if (!portal.isActive) fail(`Portal "${slug}" is inactive`);
 
     const token = await buildAndSignToken(
+      orgId,
       slug,
       "share",
       SHARE_TOKEN_MAX_AGE_SECONDS,

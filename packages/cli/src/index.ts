@@ -167,7 +167,7 @@ async function main() {
 
   // 5. Run Prisma migrations
   try {
-    run("npx prisma migrate dev --name init", appDir);
+    run("npx prisma db push", appDir);
     green("Database ready");
   } catch {
     error("Failed to set up the database. Check Prisma schema and try again.");

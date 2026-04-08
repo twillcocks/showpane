@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import { saveFile, getStoragePath, StorageError } from "@/lib/storage";
+import { resolveDefaultOrganizationId } from "@/lib/client-portals";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+function constantTimeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 255);
@@ -11,7 +18,7 @@ function sanitizeFilename(name: string): string {
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const secret = process.env.AUTH_SECRET;
-  if (!secret || !authHeader || authHeader !== `Bearer ${secret}`) {
+  if (!secret || !authHeader || !constantTimeCompare(authHeader, `Bearer ${secret}`)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -33,8 +40,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "File too large (max 50MB)" }, { status: 413 });
   }
 
+  // Resolve org — operator uploads use Bearer auth, not cookie
+  const orgId = await resolveDefaultOrganizationId();
+  if (!orgId) {
+    return NextResponse.json({ error: "No organization configured" }, { status: 503 });
+  }
+
   const portal = await prisma.clientPortal.findFirst({
-    where: { slug: portalSlug, isActive: true },
+    where: { organizationId: orgId, slug: portalSlug, isActive: true },
     select: { id: true },
   });
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedSlug } from "@/lib/client-auth";
+import { getAuthenticatedPortal } from "@/lib/client-auth";
 import { readFile_, StorageError } from "@/lib/storage";
 import { prisma } from "@/lib/db";
 
@@ -7,13 +7,13 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const slug = await getAuthenticatedSlug(req);
-  if (!slug) {
+  const portal = await getAuthenticatedPortal(req);
+  if (!portal) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { path: pathSegments } = await params;
-  const filePath = `portals/${slug}/${pathSegments.join("/")}`;
+  const filePath = `portals/${portal.slug}/${pathSegments.join("/")}`;
 
   try {
     const data = await readFile_(filePath);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getAuthenticatedSlug,
+  getAuthenticatedPortal,
   isClientAuthConfigured,
   signShareToken,
 } from "@/lib/client-auth";
@@ -13,18 +13,18 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const slug = await getAuthenticatedSlug(req);
-  if (!slug) {
+  const portal = await getAuthenticatedPortal(req);
+  if (!portal) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const shareToken = await signShareToken(slug);
+  const shareToken = await signShareToken(portal.orgId, portal.slug);
   if (!shareToken) {
     return NextResponse.json({ error: "Unable to create share link" }, { status: 500 });
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${req.nextUrl.protocol}//${req.nextUrl.host}`;
-  const shareUrl = `${baseUrl}/client/${slug}/s/${shareToken}`;
+  const shareUrl = `${baseUrl}/client/${portal.slug}/s/${shareToken}`;
 
   return NextResponse.json({ shareUrl });
 }

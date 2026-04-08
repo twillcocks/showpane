@@ -1,10 +1,10 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -94,7 +94,7 @@ model PortalEvent {
   ipAddress   String?
   createdAt   DateTime     @default(now())
 
-  portal      ClientPortal @relation(fields: [portalId], references: [id])
+  portal      ClientPortal @relation(fields: [portalId], references: [id], onDelete: Cascade)
 
   @@index([portalId, createdAt])
 }
@@ -109,7 +109,7 @@ model PortalFile {
   uploadedBy  String       @default("operator")
   uploadedAt  DateTime     @default(now())
 
-  portal      ClientPortal @relation(fields: [portalId], references: [id])
+  portal      ClientPortal @relation(fields: [portalId], references: [id], onDelete: Cascade)
 
   @@index([portalId])
 }

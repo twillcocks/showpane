@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedSlug } from "@/lib/client-auth";
+import { getAuthenticatedPortal } from "@/lib/client-auth";
 import { prisma } from "@/lib/db";
 import { saveFile, getStoragePath, StorageError } from "@/lib/storage";
 
@@ -10,8 +10,8 @@ function sanitizeFilename(name: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const slug = await getAuthenticatedSlug(req);
-  if (!slug) {
+  const portal = await getAuthenticatedPortal(req);
+  if (!portal) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -32,17 +32,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "File too large (max 50MB)" }, { status: 413 });
   }
 
-  const portal = await prisma.clientPortal.findFirst({
-    where: { slug, isActive: true },
+  const portalRecord = await prisma.clientPortal.findFirst({
+    where: { organizationId: portal.orgId, slug: portal.slug, isActive: true },
     select: { id: true },
   });
 
-  if (!portal) {
+  if (!portalRecord) {
     return NextResponse.json({ error: "Portal not found" }, { status: 404 });
   }
 
   const filename = sanitizeFilename(file.name);
-  const storagePath = getStoragePath(slug, filename);
+  const storagePath = getStoragePath(portal.slug, filename);
   const buffer = Buffer.from(await file.arrayBuffer());
   const mimeType = file.type || "application/octet-stream";
 
@@ -59,10 +59,10 @@ export async function POST(req: NextRequest) {
     const record = await prisma.portalFile.upsert({
       where: { storagePath },
       update: { filename, mimeType, size: file.size, uploadedBy: "client", uploadedAt: new Date() },
-      create: { portalId: portal.id, filename, mimeType, storagePath, size: file.size, uploadedBy: "client" },
+      create: { portalId: portalRecord.id, filename, mimeType, storagePath, size: file.size, uploadedBy: "client" },
     });
 
-    console.log(JSON.stringify({ event: "file_upload", slug, filename, size: file.size, uploadedBy: "client" }));
+    console.log(JSON.stringify({ event: "file_upload", slug: portal.slug, filename, size: file.size, uploadedBy: "client" }));
 
     return NextResponse.json({
       ok: true,

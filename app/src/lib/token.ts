@@ -18,6 +18,7 @@ export type ClientTokenScope = "session" | "share";
 
 export type ClientTokenPayload = {
   v: 1;
+  orgId: string;
   slug: string;
   scope: ClientTokenScope;
   exp: number;
@@ -26,6 +27,7 @@ export type ClientTokenPayload = {
 };
 
 export type VerifiedTokenPayload = {
+  orgId: string;
   slug: string;
   scope: ClientTokenScope;
   ver: string;
@@ -90,6 +92,7 @@ function parseTokenPayload(value: string): ClientTokenPayload | null {
     const parsed = JSON.parse(value) as Partial<ClientTokenPayload>;
     if (
       parsed.v !== 1 ||
+      typeof parsed.orgId !== "string" ||
       typeof parsed.slug !== "string" ||
       (parsed.scope !== "session" && parsed.scope !== "share") ||
       typeof parsed.exp !== "number" ||
@@ -122,6 +125,7 @@ export async function signTokenPayload(
  * Caller must provide slug, scope, maxAge, and credentialVersion.
  */
 export async function buildAndSignToken(
+  orgId: string,
   slug: string,
   scope: ClientTokenScope,
   maxAgeSeconds: number,
@@ -129,6 +133,7 @@ export async function buildAndSignToken(
 ): Promise<string | null> {
   const payload: ClientTokenPayload = {
     v: 1,
+    orgId,
     slug,
     scope,
     exp: Math.floor(Date.now() / 1000) + maxAgeSeconds,
@@ -172,7 +177,7 @@ export async function verifyTokenSignature(
   if (expectedScope && payload.scope !== expectedScope) return null;
   if (payload.exp <= Math.floor(Date.now() / 1000)) return null;
 
-  return { slug: payload.slug, scope: payload.scope, ver: payload.ver };
+  return { orgId: payload.orgId, slug: payload.slug, scope: payload.scope, ver: payload.ver };
 }
 
 /** Max age constants */

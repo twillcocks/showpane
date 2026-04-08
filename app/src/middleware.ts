@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedSlug } from "@/lib/client-auth";
+import { getAuthenticatedPortal } from "@/lib/client-auth";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -9,9 +9,9 @@ export async function middleware(req: NextRequest) {
   // Login page: if already authenticated, redirect to portal
   if (pathname === "/client") {
     try {
-      const slug = await getAuthenticatedSlug(req);
-      if (slug) {
-        return NextResponse.redirect(new URL(`/client/${slug}`, req.url));
+      const portal = await getAuthenticatedPortal(req);
+      if (portal) {
+        return NextResponse.redirect(new URL(`/client/${portal.slug}`, req.url));
       }
     } catch (e) {
       console.error("Middleware: DB error checking auth on login page", e);
@@ -33,13 +33,13 @@ export async function middleware(req: NextRequest) {
   // Portal pages require authentication
   if (pathname.startsWith("/client/")) {
     try {
-      const authenticatedSlug = await getAuthenticatedSlug(req);
-      if (!authenticatedSlug) {
+      const portal = await getAuthenticatedPortal(req);
+      if (!portal) {
         return NextResponse.redirect(new URL("/client", req.url));
       }
       // Ensure the URL slug matches the authenticated slug
       const urlSlug = pathname.split("/")[2];
-      if (urlSlug !== authenticatedSlug) {
+      if (urlSlug !== portal.slug) {
         return NextResponse.redirect(new URL("/client", req.url));
       }
       return NextResponse.next();

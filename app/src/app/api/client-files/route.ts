@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedSlug } from "@/lib/client-auth";
+import { getAuthenticatedPortal } from "@/lib/client-auth";
 import { prisma } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
-  const slug = await getAuthenticatedSlug(req);
-  if (!slug) {
+  const portal = await getAuthenticatedPortal(req);
+  if (!portal) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const files = await prisma.portalFile.findMany({
-      where: { portal: { slug, isActive: true } },
+      where: { portal: { organizationId: portal.orgId, slug: portal.slug, isActive: true } },
       orderBy: { uploadedAt: "desc" },
       select: {
         id: true,

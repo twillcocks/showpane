@@ -13,14 +13,22 @@ function getProvider(): StorageProvider {
 
 const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
 
+function safePath(filePath: string): string {
+  const resolved = path.resolve(UPLOADS_DIR, filePath);
+  if (!resolved.startsWith(UPLOADS_DIR + path.sep) && resolved !== UPLOADS_DIR) {
+    throw new Error("Path traversal detected");
+  }
+  return resolved;
+}
+
 async function localSave(filePath: string, data: Buffer): Promise<void> {
-  const fullPath = path.join(UPLOADS_DIR, filePath);
+  const fullPath = safePath(filePath);
   await mkdir(path.dirname(fullPath), { recursive: true });
   await writeFile(fullPath, data);
 }
 
 async function localRead(filePath: string): Promise<Buffer | null> {
-  const fullPath = path.join(UPLOADS_DIR, filePath);
+  const fullPath = safePath(filePath);
   try {
     return await readFile(fullPath);
   } catch {
@@ -29,7 +37,7 @@ async function localRead(filePath: string): Promise<Buffer | null> {
 }
 
 async function localExists(filePath: string): Promise<boolean> {
-  const fullPath = path.join(UPLOADS_DIR, filePath);
+  const fullPath = safePath(filePath);
   try {
     const s = await stat(fullPath);
     return s.isFile();

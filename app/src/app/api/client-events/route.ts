@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedSlug } from "@/lib/client-auth";
+import { getAuthenticatedPortal } from "@/lib/client-auth";
 import { prisma } from "@/lib/db";
 
 const VALID_EVENTS = new Set(["portal_view", "tab_switch"]);
 
 export async function POST(req: NextRequest) {
-  const slug = await getAuthenticatedSlug(req);
-  if (!slug) {
+  const portal = await getAuthenticatedPortal(req);
+  if (!portal) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -28,16 +28,16 @@ export async function POST(req: NextRequest) {
     req.headers.get("x-real-ip") ||
     "unknown";
 
-  // Look up portal by slug to get its ID
-  const portal = await prisma.clientPortal.findFirst({
-    where: { slug, isActive: true },
+  // Look up portal by org-scoped slug to get its ID
+  const portalRecord = await prisma.clientPortal.findFirst({
+    where: { organizationId: portal.orgId, slug: portal.slug, isActive: true },
     select: { id: true },
   });
 
-  if (portal) {
+  if (portalRecord) {
     await prisma.portalEvent.create({
       data: {
-        portalId: portal.id,
+        portalId: portalRecord.id,
         event,
         detail: detail || null,
         ipAddress: ip,

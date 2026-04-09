@@ -32,7 +32,7 @@ export DATABASE_URL="${DATABASE_URL:-}"
 
 # 3. Verify app installed
 if [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
-  echo "ERROR: Prisma client not generated. Run: cd $APP_PATH && npm install && npx prisma generate" >&2
+  echo "ERROR: Prisma client not generated. Run: cd $APP_PATH && npm install && npm run prisma:generate" >&2
   exit 1
 fi
 
@@ -57,7 +57,7 @@ fi
 
 # 5b. Predictive next-skill suggestion
 if [ -f "$HOME/.showpane/timeline.jsonl" ]; then
-  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//')
+  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//' || true)
   [ -n "$_RECENT" ] && echo "RECENT_SKILLS: $_RECENT"
 fi
 

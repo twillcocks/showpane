@@ -13,6 +13,14 @@ const bundleRoot = path.join(cliDir, "bundle");
 const scaffoldOut = path.join(bundleRoot, "scaffold");
 const toolchainOut = path.join(bundleRoot, "toolchain");
 const metaOut = path.join(bundleRoot, "meta");
+const excludedScaffoldPaths = [
+  ".vercel/",
+  "docker/",
+  "docker-compose.yml",
+  "scripts/backup.sh",
+  "scripts/e2e-verify.sh",
+  "scripts/restore.sh",
+];
 
 function rimraf(targetPath) {
   fs.rmSync(targetPath, { recursive: true, force: true });
@@ -54,6 +62,12 @@ function gitTrackedFiles(...roots) {
   return output.split("\0").filter(Boolean);
 }
 
+function shouldExcludeScaffoldPath(relativePath) {
+  return excludedScaffoldPaths.some((pattern) =>
+    pattern.endsWith("/") ? relativePath.startsWith(pattern) : relativePath === pattern
+  );
+}
+
 rimraf(bundleRoot);
 ensureDir(scaffoldOut);
 ensureDir(toolchainOut);
@@ -68,7 +82,13 @@ const scaffoldManifest = {
 
 for (const relativePath of gitTrackedFiles("app")) {
   const sourcePath = path.join(repoRoot, relativePath);
+  if (!fs.existsSync(sourcePath)) {
+    continue;
+  }
   const targetRelativePath = relativePath.replace(/^app\//, "");
+  if (shouldExcludeScaffoldPath(targetRelativePath)) {
+    continue;
+  }
   const targetPath = path.join(scaffoldOut, bundledScaffoldPath(targetRelativePath));
 
   copyTrackedFile(sourcePath, targetPath);
@@ -77,6 +97,9 @@ for (const relativePath of gitTrackedFiles("app")) {
 
 for (const relativePath of gitTrackedFiles("skills", "bin", "templates")) {
   const sourcePath = path.join(repoRoot, relativePath);
+  if (!fs.existsSync(sourcePath)) {
+    continue;
+  }
   const targetPath = path.join(toolchainOut, relativePath);
   copyTrackedFile(sourcePath, targetPath);
 }

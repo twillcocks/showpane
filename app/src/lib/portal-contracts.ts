@@ -49,6 +49,39 @@ export interface PortalFileSyncManifestPayload {
   files: PortalFileSyncManifestEntry[];
 }
 
+export interface RuntimePortalSnapshot {
+  slug: string;
+  companyName: string;
+  logoUrl?: string | null;
+  username: string;
+  passwordHash: string;
+  credentialVersion: string;
+  isActive: boolean;
+  lastUpdated?: string | null;
+}
+
+export interface RuntimeOrganizationSnapshot {
+  id: string;
+  slug: string;
+  name: string;
+  logoUrl?: string | null;
+  primaryColor?: string;
+  portalLabel?: string;
+  websiteUrl?: string | null;
+  contactName?: string | null;
+  contactTitle?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactAvatar?: string | null;
+  supportEmail?: string | null;
+  customDomain?: string | null;
+}
+
+export interface RuntimeStatePayload {
+  organization: RuntimeOrganizationSnapshot;
+  portals: RuntimePortalSnapshot[];
+}
+
 const PORTAL_EVENT_TYPE_SET = new Set<string>(PORTAL_EVENT_TYPES);
 
 export function isPortalEventType(value: unknown): value is PortalEventType {

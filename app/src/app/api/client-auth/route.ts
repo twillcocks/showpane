@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  // Resolve organization — self-hosted uses first org, cloud reads ORG_ID env var
+  // Resolve organization — local uses the first org, hosted runtime uses runtime-state
   const orgId = await resolveDefaultOrganizationId();
   if (!orgId) {
     return NextResponse.json({ error: "No organization configured" }, { status: 503 });

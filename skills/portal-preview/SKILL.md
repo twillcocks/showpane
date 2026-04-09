@@ -17,7 +17,7 @@ if [ ! -f "$CONFIG" ]; then
   exit 1
 fi
 APP_PATH=$(cat "$CONFIG" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('app_path',''))" 2>/dev/null)
-DEPLOY_MODE=$(cat "$CONFIG" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('deploy_mode','docker'))" 2>/dev/null)
+DEPLOY_MODE=$(cat "$CONFIG" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('deploy_mode','local'))" 2>/dev/null)
 ORG_SLUG=$(cat "$CONFIG" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('orgSlug','') or d.get('org_slug',''))" 2>/dev/null)
 APP_PATH="${SHOWPANE_APP_PATH:-$APP_PATH}"
 if [ -f "$APP_PATH/.env" ]; then set -a && source "$APP_PATH/.env" && set +a; fi
@@ -34,7 +34,7 @@ LEARN_FILE="$HOME/.showpane/learnings.jsonl"
 
 # Predictive next-skill suggestion
 if [ -f "$HOME/.showpane/timeline.jsonl" ]; then
-  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//')
+  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//' || true)
   [ -n "$_RECENT" ] && echo "RECENT_SKILLS: $_RECENT"
 fi
 
@@ -69,7 +69,7 @@ mention them unless they directly affect the current task.
 
 ## Overview
 
-This skill opens a portal in the user's default web browser. It is the fastest way to see what a portal looks like after creating or updating it. The skill determines the correct URL based on the deployment mode and whether a local dev server is running, then opens it using the platform's native command.
+This skill opens a portal in the user's default web browser. It is the fastest way to see what a portal looks like after creating or updating it. The skill determines the correct URL based on whether a local dev server is running and whether a public app URL is configured, then opens it using the platform's native command.
 
 This is a lightweight skill -- it does not start a dev server, build the app, or modify anything. It just opens a URL. If the dev server is not running, it tells the user how to start it.
 
@@ -101,27 +101,14 @@ If a process is listening on port 3000, the URL is:
 http://localhost:3000/client/<slug>
 ```
 
-**Option B: Docker deploy mode (check port 8080)**
-
-If `DEPLOY_MODE` is `docker`, check if the container is running:
-
-```bash
-lsof -i :8080 -sTCP:LISTEN -t >/dev/null 2>&1 && echo "DOCKER_RUNNING=true" || echo "DOCKER_RUNNING=false"
-```
-
-If running, the URL is:
-```
-http://localhost:8080/client/<slug>
-```
-
-**Option C: NEXT_PUBLIC_APP_URL is set**
+**Option B: NEXT_PUBLIC_APP_URL is set**
 
 If the environment variable `NEXT_PUBLIC_APP_URL` is set (sourced from `.env` by the preamble), use it:
 ```
 ${NEXT_PUBLIC_APP_URL}/client/<slug>
 ```
 
-This handles production/staging URLs, custom domains, and any other deployment target.
+This handles deployed URLs, custom domains, and any other public preview target.
 
 **Fallback: Nothing running**
 
@@ -174,9 +161,8 @@ If the portal is the example portal (slug is "example"), no credentials are need
 To be explicit about resolution order:
 
 1. **Dev server on port 3000** -- always preferred for local development, regardless of other settings.
-2. **Docker on port 8080** -- used when deploy_mode is docker and the container is running.
-3. **NEXT_PUBLIC_APP_URL** -- used for production or staging environments, or when no local server is detected.
-4. **Fallback** -- no URL available, prompt the user to start a server.
+2. **NEXT_PUBLIC_APP_URL** -- used for deployed environments or when no local server is detected.
+3. **Fallback** -- no URL available, prompt the user to start a server.
 
 This order ensures that during development, the user always sees the latest local version, even if NEXT_PUBLIC_APP_URL points to production.
 
@@ -213,9 +199,9 @@ If the user is previewing to check content before sharing with a client, suggest
 
 ## Previewing After Changes
 
-A common workflow is: edit portal content with `/portal update`, then preview to verify. If the dev server is running with Next.js hot reload, changes to the client component files will appear immediately without a page refresh. If the user is running a production build (docker mode), they may need to rebuild first.
+A common workflow is: edit portal content with `/portal update`, then preview to verify. If the dev server is running with Next.js hot reload, changes to the client component files will appear immediately without a page refresh.
 
-If the user just ran `/portal update` and then `/portal preview`, mention: "If you don't see your changes, make sure the dev server is running (hot reload) or rebuild with /portal deploy for docker mode."
+If the user just ran `/portal update` and then `/portal preview`, mention: "If you don't see your changes, make sure the dev server is running so hot reload can pick them up."
 
 ## Multiple Portals Preview
 

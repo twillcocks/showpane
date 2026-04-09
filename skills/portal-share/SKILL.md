@@ -20,7 +20,7 @@ if [ ! -f "$CONFIG" ]; then
   exit 1
 fi
 APP_PATH=$(cat "$CONFIG" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('app_path',''))" 2>/dev/null)
-DEPLOY_MODE=$(cat "$CONFIG" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('deploy_mode','docker'))" 2>/dev/null)
+DEPLOY_MODE=$(cat "$CONFIG" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('deploy_mode','local'))" 2>/dev/null)
 ORG_SLUG=$(cat "$CONFIG" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('orgSlug','') or d.get('org_slug',''))" 2>/dev/null)
 APP_PATH="${SHOWPANE_APP_PATH:-$APP_PATH}"
 if [ -f "$APP_PATH/.env" ]; then set -a && source "$APP_PATH/.env" && set +a; fi
@@ -37,7 +37,7 @@ LEARN_FILE="$HOME/.showpane/learnings.jsonl"
 
 # Predictive next-skill suggestion
 if [ -f "$HOME/.showpane/timeline.jsonl" ]; then
-  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//')
+  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//' || true)
   [ -n "$_RECENT" ] && echo "RECENT_SKILLS: $_RECENT"
 fi
 
@@ -147,8 +147,7 @@ Do NOT log the share URL to learnings or telemetry. The URL contains the signed 
 - Always display the full URL, never truncate or abbreviate it. The user needs to copy-paste it.
 - Make it clear that the link does not expire automatically and is revoked by credential rotation or portal deactivation.
 - Use double-line box drawing (`═`) for the border around the link.
-- If NEXT_PUBLIC_APP_URL is `http://localhost:3000`, warn the user: "This is a local development URL. The client won't be able to access it remotely. Deploy the app first with /portal deploy, then generate the share link."
-- If the deploy mode is `docker` and the URL looks like localhost, same warning applies.
+- If NEXT_PUBLIC_APP_URL is `http://localhost:3000`, warn the user: "This is a local development URL. The client won't be able to access it remotely. Deploy the app with /portal deploy, then generate the share link again."
 
 ## Error Handling
 

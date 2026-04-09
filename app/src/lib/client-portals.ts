@@ -108,24 +108,15 @@ export async function getCredentialVersion(
 
 /**
  * Resolve the organizationId for the current request context.
- * Cloud: each Vercel project has ORG_ID set during provisioning.
- * Self-hosted: returns the single org in the DB.
+ * Hosted runtime reads it from the runtime snapshot.
+ * Local workspace returns the first org from the SQLite database.
  */
 export async function resolveDefaultOrganizationId(): Promise<string | null> {
   if (isRuntimeSnapshotMode()) {
     const state = await getRuntimeState();
-    return state?.organization.id ?? process.env.ORG_ID ?? null;
+    return state?.organization.id ?? null;
   }
-
-  // Cloud: each Vercel project has ORG_ID set during provisioning
-  if (process.env.ORG_ID) {
-    const org = await prisma.organization.findUnique({
-      where: { id: process.env.ORG_ID },
-      select: { id: true },
-    });
-    return org?.id ?? null;
-  }
-  // Self-hosted: use the single org in the DB
+  // Local workspace: use the first org in the DB
   const org = await prisma.organization.findFirst({
     select: { id: true },
     orderBy: { createdAt: "asc" },

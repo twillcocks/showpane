@@ -1,7 +1,7 @@
 ---
 name: portal-verify
 description: |
-  Verify deployed portal health: DNS, SSL, login page, content rendering, engagement tracking.
+  Verify a Showpane Cloud portal after publish: DNS, SSL, login page, content rendering, engagement tracking.
   Trigger phrases: "verify portal", "check deployment", "is my portal working", "portal health". (showpane)
 allowed-tools: [Bash, Read, Glob, Grep]
 ---
@@ -16,7 +16,7 @@ if [ ! -f "$CONFIG" ]; then
   exit 1
 fi
 APP_PATH=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('app_path',''))" 2>/dev/null)
-DEPLOY_MODE=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('deploy_mode','docker'))" 2>/dev/null)
+DEPLOY_MODE=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('deploy_mode','local'))" 2>/dev/null)
 ORG_SLUG=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('orgSlug','') or d.get('org_slug',''))" 2>/dev/null)
 CLOUD_API_TOKEN=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('cloud',d).get('api_token', d.get('accessToken','')))" 2>/dev/null)
 CLOUD_ORG_SLUG=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('cloud',d).get('org_slug', d.get('orgSlug','')))" 2>/dev/null)
@@ -41,38 +41,26 @@ LEARN_FILE="$HOME/.showpane/learnings.jsonl"
 
 ### Step 1: URL Reachability
 
-Determine the portal URL based on deploy mode and check that it responds.
+Determine the portal URL and check that it responds.
 
-**For self-hosted (docker/vercel):**
 ```bash
-PORTAL_URL="${CLOUD_PORTAL_URL:-http://localhost:3000}"
-echo "Checking portal URL: $PORTAL_URL"
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL" 2>/dev/null)
-echo "HTTP status: $HTTP_CODE"
-if [ "$HTTP_CODE" = "200" ]; then
+if [ -z "$CLOUD_PORTAL_URL" ] && [ -z "$CLOUD_ORG_SLUG" ]; then
+  echo "No hosted portal URL configured. Run /portal deploy first."
+  exit 1
+fi
+PORTAL_URL="${CLOUD_PORTAL_URL:-https://$CLOUD_ORG_SLUG.showpane.com}"
+echo "Checking app URL: $CLOUD_API_BASE"
+APP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$CLOUD_API_BASE/api/health" 2>/dev/null)
+echo "App health: $APP_CODE"
+
+echo "Checking org URL: $PORTAL_URL"
+ORG_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL" 2>/dev/null)
+echo "Org portal: $ORG_CODE"
+
+if [ "$ORG_CODE" = "200" ]; then
   URL_STATUS="ok"
 else
-  URL_STATUS="unreachable ($HTTP_CODE)"
-fi
-```
-
-**For cloud deploys:**
-```bash
-if [ "$DEPLOY_MODE" = "cloud" ]; then
-  PORTAL_URL="${CLOUD_PORTAL_URL:-https://$CLOUD_ORG_SLUG.showpane.com}"
-  echo "Checking app URL: $CLOUD_API_BASE"
-  APP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$CLOUD_API_BASE/api/health" 2>/dev/null)
-  echo "App health: $APP_CODE"
-
-  echo "Checking org URL: $PORTAL_URL"
-  ORG_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL" 2>/dev/null)
-  echo "Org portal: $ORG_CODE"
-
-  if [ "$ORG_CODE" = "200" ]; then
-    URL_STATUS="ok"
-  else
-    URL_STATUS="unreachable ($ORG_CODE)"
-  fi
+  URL_STATUS="unreachable ($ORG_CODE)"
 fi
 ```
 
@@ -110,7 +98,7 @@ if [ "$DEPLOY_MODE" = "cloud" ] && [ -n "$CLOUD_ORG_SLUG" ]; then
     echo "HTTP->HTTPS redirect: $REDIRECT_CODE (expected 301 or 308)"
   fi
 else
-  SSL_STATUS="n/a (self-hosted)"
+  SSL_STATUS="n/a (no cloud org configured)"
 fi
 ```
 
@@ -132,7 +120,7 @@ echo "Active portals: $PORTAL_LIST"
 For each portal, verify the login page returns a response and contains auth-related content:
 
 ```bash
-PORTAL_URL="${CLOUD_PORTAL_URL:-http://localhost:3000}"
+PORTAL_URL="${CLOUD_PORTAL_URL:-https://$CLOUD_ORG_SLUG.showpane.com}"
 echo "$PORTAL_LIST" | python3 -c "
 import sys, json
 portals = json.load(sys.stdin)
@@ -261,5 +249,5 @@ After the report, suggest next steps:
 - Cloud checks verify both the control plane (app.showpane.com) and the org portal (orgslug.showpane.com)
 - The PortalFile model may not exist in all schema versions — catch errors gracefully
 - If the database is unreachable, skip DB-dependent checks (Steps 3, 5) and note it in the report
-- SSL checks only apply to cloud deploys — self-hosted SSL is the user's responsibility
+- SSL checks only apply when a cloud portal URL is configured
 - The events endpoint check uses OPTIONS to avoid creating spurious event records

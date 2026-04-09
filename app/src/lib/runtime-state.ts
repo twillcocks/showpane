@@ -1,38 +1,8 @@
 import { readFile } from "fs/promises";
 import path from "path";
+import type { RuntimeStatePayload } from "@/lib/portal-contracts";
 
-export type RuntimePortalSnapshot = {
-  slug: string;
-  companyName: string;
-  logoUrl?: string | null;
-  username: string;
-  passwordHash: string;
-  credentialVersion: string;
-  isActive: boolean;
-  lastUpdated?: string | null;
-};
-
-export type RuntimeOrganizationSnapshot = {
-  id: string;
-  slug: string;
-  name: string;
-  logoUrl?: string | null;
-  primaryColor?: string;
-  portalLabel?: string;
-  websiteUrl?: string | null;
-  contactName?: string | null;
-  contactTitle?: string | null;
-  contactEmail?: string | null;
-  contactPhone?: string | null;
-  contactAvatar?: string | null;
-  supportEmail?: string | null;
-  customDomain?: string | null;
-};
-
-export type RuntimeState = {
-  organization: RuntimeOrganizationSnapshot;
-  portals: RuntimePortalSnapshot[];
-};
+export type RuntimeState = RuntimeStatePayload;
 
 let cachedState: RuntimeState | null | undefined;
 

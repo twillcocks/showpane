@@ -26,7 +26,7 @@ if [ ! -f "$CONFIG" ]; then
   exit 1
 fi
 APP_PATH=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('app_path',''))" 2>/dev/null)
-DEPLOY_MODE=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('deploy_mode','docker'))" 2>/dev/null)
+DEPLOY_MODE=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('deploy_mode','local'))" 2>/dev/null)
 ORG_SLUG=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('orgSlug','') or d.get('org_slug',''))" 2>/dev/null)
 APP_PATH="${SHOWPANE_APP_PATH:-$APP_PATH}"
 if [ -f "$APP_PATH/.env" ]; then set -a && source "$APP_PATH/.env" && set +a; fi
@@ -43,7 +43,7 @@ LEARN_FILE="$HOME/.showpane/learnings.jsonl"
 
 # Predictive next-skill suggestion
 if [ -f "$HOME/.showpane/timeline.jsonl" ]; then
-  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//')
+  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//' || true)
   [ -n "$_RECENT" ] && echo "RECENT_SKILLS: $_RECENT"
 fi
 
@@ -128,7 +128,7 @@ The script returns JSON on stdout:
 If the script returns an error, handle it based on the error type:
 
 - `portal_not_found` — The portal slug doesn't exist in the database for this org. Suggest running `/portal create <slug>` first.
-- `database_error` — Connection or query failure. Check DATABASE_URL, verify the database is running, and check that migrations are up to date (`cd $APP_PATH && npx prisma migrate deploy`).
+- `database_error` — Connection or query failure. Check DATABASE_URL and re-apply the local schema with `cd $APP_PATH && npm run prisma:db-push`.
 - `auth_secret_missing` — The AUTH_SECRET environment variable is not set in `$APP_PATH/.env`. The rotate-credentials script needs this to function. Suggest adding `AUTH_SECRET=<random-string>` to the .env file.
 
 If the script exits with a non-zero code but produces no JSON output, check stderr for Prisma or Node.js errors and relay them to the user.

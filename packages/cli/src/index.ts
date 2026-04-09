@@ -80,7 +80,6 @@ type ShowpaneConfig = {
   deploy_mode?: string;
   orgSlug?: string;
   portalUrl?: string | null;
-  vercelProjectId?: string | null;
   shellPathConfigured?: boolean;
   shellPathConfiguredProfile?: string | null;
   shellPathPrompted?: boolean;
@@ -712,19 +711,40 @@ function readShowpaneConfig(): ShowpaneConfig {
 function writeShowpaneConfig(config: ShowpaneConfig) {
   ensureDir(SHOWPANE_HOME);
   const configPath = getShowpaneConfigPath();
-  writeJson(configPath, config);
+  const normalizedConfig = {
+    ...config,
+    deploy_mode:
+      typeof config.deploy_mode === "string"
+        ? normalizeDeployMode(config.deploy_mode)
+        : config.deploy_mode,
+    workspaces: config.workspaces?.map((workspace) => ({
+      ...workspace,
+      deployMode: normalizeDeployMode(workspace.deployMode),
+    })),
+  };
+  writeJson(configPath, normalizedConfig);
   chmodSync(configPath, 0o600);
+}
+
+function normalizeDeployMode(mode: unknown): string {
+  return mode === "cloud" ? "cloud" : "local";
+}
+
+function hasShowpaneProjectShape(projectPath: string) {
+  return (
+    existsSync(join(projectPath, "package.json")) &&
+    (
+      existsSync(join(projectPath, "prisma.config.ts")) ||
+      existsSync(join(projectPath, "prisma", "schema.local.prisma"))
+    )
+  );
 }
 
 function findWorkspaceRoot(startPath: string) {
   let currentPath = resolve(startPath);
 
   while (true) {
-    if (
-      existsSync(join(currentPath, "package.json")) &&
-      existsSync(join(currentPath, "prisma", "schema.prisma")) &&
-      existsSync(getProjectMetadataPath(currentPath))
-    ) {
+    if (hasShowpaneProjectShape(currentPath) && existsSync(getProjectMetadataPath(currentPath))) {
       return currentPath;
     }
 
@@ -737,7 +757,7 @@ function findWorkspaceRoot(startPath: string) {
 }
 
 function defaultWorkspaceEntry(projectPath: string, overrides?: Partial<WorkspaceEntry>): WorkspaceEntry {
-  return {
+  const workspace = {
     name: basename(projectPath),
     path: resolve(projectPath),
     lastUsedAt: new Date().toISOString(),
@@ -745,6 +765,8 @@ function defaultWorkspaceEntry(projectPath: string, overrides?: Partial<Workspac
     orgSlug: "",
     ...overrides,
   };
+  workspace.deployMode = normalizeDeployMode(workspace.deployMode);
+  return workspace;
 }
 
 function getWorkspaceEntries(config: ShowpaneConfig) {
@@ -753,7 +775,7 @@ function getWorkspaceEntries(config: ShowpaneConfig) {
 
   if (activePath && !workspaces.some((workspace) => normalizePathForComparison(workspace.path) === normalizePathForComparison(activePath))) {
     workspaces.push(defaultWorkspaceEntry(activePath, {
-      deployMode: typeof config.deploy_mode === "string" ? config.deploy_mode : "local",
+      deployMode: normalizeDeployMode(config.deploy_mode),
       orgSlug: typeof config.orgSlug === "string" ? config.orgSlug : "",
     }));
   }
@@ -763,7 +785,7 @@ function getWorkspaceEntries(config: ShowpaneConfig) {
       ...workspace,
       path: resolve(workspace.path),
       lastUsedAt: workspace.lastUsedAt || new Date(0).toISOString(),
-      deployMode: workspace.deployMode || "local",
+      deployMode: normalizeDeployMode(workspace.deployMode),
       orgSlug: workspace.orgSlug || "",
     }))
     .sort((left, right) => right.lastUsedAt.localeCompare(left.lastUsedAt));
@@ -771,7 +793,7 @@ function getWorkspaceEntries(config: ShowpaneConfig) {
 
 function setActiveWorkspace(config: ShowpaneConfig, workspace: WorkspaceEntry) {
   config.app_path = workspace.path;
-  config.deploy_mode = workspace.deployMode;
+  config.deploy_mode = normalizeDeployMode(workspace.deployMode);
   config.orgSlug = workspace.orgSlug;
 }
 
@@ -788,7 +810,7 @@ function upsertWorkspace(config: ShowpaneConfig, workspace: WorkspaceEntry, make
 
 function updateWorkspaceFromConfig(config: ShowpaneConfig, projectPath: string, overrides?: Partial<WorkspaceEntry>) {
   const workspace = defaultWorkspaceEntry(projectPath, {
-    deployMode: typeof config.deploy_mode === "string" ? config.deploy_mode : "local",
+    deployMode: normalizeDeployMode(config.deploy_mode),
     orgSlug: typeof config.orgSlug === "string" ? config.orgSlug : "",
     ...overrides,
   });
@@ -995,12 +1017,7 @@ function detectProjectRoot(explicitProjectPath?: string) {
   }
 
   for (const candidate of candidatePaths) {
-    if (
-      existsSync(join(candidate, "package.json")) &&
-      existsSync(join(candidate, "prisma", "schema.prisma")) &&
-      existsSync(getProjectMetadataPath(candidate)) &&
-      existsSync(getManagedFilesPath(candidate))
-    ) {
+    if (hasShowpaneProjectShape(candidate) && existsSync(getProjectMetadataPath(candidate)) && existsSync(getManagedFilesPath(candidate))) {
       return candidate;
     }
   }
@@ -1885,7 +1902,6 @@ async function login() {
     config.accessTokenExpiresAt = data.tokenExpiresAt;
     config.orgSlug = data.orgSlug;
     config.portalUrl = data.portalUrl;
-    config.vercelProjectId = data.vercelProjectId;
 
     const currentWorkspace = findWorkspaceRoot(process.cwd())
       ?? (config.app_path ? findWorkspaceRoot(config.app_path) ?? resolve(config.app_path) : null);

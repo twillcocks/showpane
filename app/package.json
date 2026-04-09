@@ -2,14 +2,15 @@
   "name": "showpane-portal",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "npm@10.9.2",
   "scripts": {
     "dev": "next dev",
     "prisma:generate": "node scripts/prisma-generate.mjs",
     "prisma:db-push": "node scripts/prisma-db-push.mjs",
+    "cloud:build": "npm run prisma:generate && npx --yes vercel build --prod",
     "build": "npm run prisma:generate && next build",
     "start": "next start",
     "postinstall": "npm run prisma:generate",
-    "db:migrate": "prisma migrate deploy",
     "db:push": "npm run prisma:db-push",
     "db:seed": "npx tsx prisma/seed.ts",
     "test": "vitest"

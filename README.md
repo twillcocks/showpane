@@ -25,26 +25,24 @@ Create a portal for my call with Acme Health
 
 Claude Code creates a branded portal with meeting notes, next steps, and documents. Preview it at `localhost:3000/client/acme-health`.
 
-## Two Modes
+## Supported Workflow
 
-### Self-Hosted (Free)
-Run on your own infrastructure. Unlimited portals, single operator.
+### Local Workspace
+Write and preview portals locally with zero-config SQLite.
 
 ```bash
-npx showpane           # Local dev with SQLite
-cd showpane-<your-company-slug>
-docker compose up -d   # Production with PostgreSQL + Caddy
+npx showpane
 ```
 
 ### Showpane Cloud ($29/mo)
 Hosted at `orgname.showpane.com` with engagement intelligence.
 
 ```
-claude /portal deploy   # Choose "Cloud" when prompted
+claude /portal deploy
 ```
 
 **Cloud includes:** Real-time activity feed, visitor tracking, per-section time analytics, email alerts, team access (multiple operators), 1-year analytics retention.
-The local app builds the portal, then Showpane Cloud publishes it on your behalf. OSS does not need to reason about Vercel projects directly.
+The local app builds the portal, then Showpane Cloud publishes it on your behalf. OSS does not need to reason about provider projects directly.
 
 ## Skills
 
@@ -56,7 +54,7 @@ The local app builds the portal, then Showpane Cloud publishes it on your behalf
 | `/portal create <slug>` | Scaffold a new portal (supports Granola transcripts) |
 | `/portal update <slug>` | Edit portal content via natural language |
 | `/portal credentials <slug>` | Create or rotate login credentials |
-| `/portal deploy` | Deploy (Docker or Showpane Cloud) |
+| `/portal deploy` | Publish to Showpane Cloud |
 | `/portal dev` | Start local dev server |
 | `/portal preview [slug]` | Open portal in browser |
 | `/portal analytics [slug]` | View engagement data |
@@ -77,20 +75,6 @@ Three portal templates for common use cases:
 
 Templates are reference implementations. `/portal create` reads them for inspiration and generates bespoke content tailored to each client.
 
-## Self-Hosting with Docker
-
-```bash
-cd showpane-<your-company-slug>
-cp .env.example .env
-# Edit .env — set DATABASE_URL (PostgreSQL) and AUTH_SECRET
-
-AUTH_SECRET=$(openssl rand -base64 32) docker compose up -d
-docker compose exec portal npx prisma migrate deploy
-docker compose exec portal npx prisma db seed
-```
-
-Visit http://localhost:8080 and log in with `example` / `demo-only-password`.
-
 ## Development (Repo)
 
 ```bash
@@ -99,16 +83,18 @@ npm install
 cp .env.example .env
 # DATABASE_URL="file:./dev.db" for local dev (SQLite)
 
-npx prisma db push
+npm run prisma:db-push
 npm run dev
 ```
+
+Bare Prisma CLI commands in `app/` follow `DATABASE_URL`. The supported local workflow keeps this on SQLite.
 
 ## Architecture
 
 - **Next.js 15** with App Router
-- **Prisma** with PostgreSQL (canonical) or SQLite (local dev via `db push`)
+- **Prisma** with SQLite for the supported local workspace flow
 - **HMAC-SHA256** stateless auth with org-scoped tokens
-- **Docker Compose** for self-hosted deployment (PostgreSQL + Caddy)
+- **Runtime snapshot + control plane** for hosted publish handoff
 - **Claude Code skill pack** for portal management
 - **Intersection Observer** for per-section time tracking
 - **First-party visitor cookie** (`sp_visitor`) for session-level analytics
@@ -118,7 +104,6 @@ npm run dev
 ```
 showpane/
 ├── app/             — Next.js portal application (OSS)
-├── platform/        — Showpane Cloud (app.showpane.com)
 ├── packages/cli/    — npx showpane installer
 ├── skills/          — 14 SKILL.md files (Claude Code slash commands)
 ├── bin/             — TypeScript utility scripts (DB operations)
@@ -127,19 +112,19 @@ showpane/
 └── DESIGN.md        — Design system tokens and patterns
 ```
 
-### Cloud Platform (`platform/`)
+### Showpane Cloud
 
-The hosted platform at app.showpane.com. Separate Next.js app with:
+The hosted platform at app.showpane.com lives in the separate `showpane-cloud` repo and includes:
 
 - **Clerk** auth (signup/login/team management)
 - **Stripe** billing ($29/mo flat, 7-day trial)
 - **Supabase** PostgreSQL with RLS
-- **Vercel Platforms API** behind the Showpane Cloud control plane for portal provisioning and hosted publish
+- **Provider provisioning APIs** behind the Showpane Cloud control plane for portal provisioning and hosted publish
 - **Resend** for email alerts
 - Engagement dashboard with real-time activity feed
 - CLI device auth for `./setup --cloud`
 
 ## License
 
-- **App** (AGPL-3.0) — Portal application, Prisma schema, Docker setup
+- **App** (AGPL-3.0) — Portal application and cloud publish tooling
 - **Skills** (MIT) — SKILL.md files, open distribution

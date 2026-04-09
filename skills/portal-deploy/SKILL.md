@@ -1,7 +1,7 @@
 ---
 name: portal-deploy
 description: |
-  Deploy the Showpane portal app. Runs pre-flight checks, applies migrations, and deploys via Docker or Vercel.
+  Publish the Showpane portal app to Showpane Cloud. Runs pre-flight checks, builds the app locally, uploads the artifact, and waits for the hosted publish to go live.
   Trigger phrases: "portal deploy", "deploy portals", "push to production", "ship the portals". (showpane)
 allowed-tools: [Bash, Read, Write, Edit, Glob, Grep, WebSearch]
 ---
@@ -19,7 +19,7 @@ if [ ! -f "$CONFIG" ]; then
   exit 1
 fi
 APP_PATH=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('app_path',''))" 2>/dev/null)
-DEPLOY_MODE=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('deploy_mode','docker'))" 2>/dev/null)
+DEPLOY_MODE=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('deploy_mode','local'))" 2>/dev/null)
 ORG_SLUG=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('orgSlug','') or d.get('org_slug',''))" 2>/dev/null)
 CLOUD_API_TOKEN=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('cloud',d).get('api_token', d.get('accessToken','')))" 2>/dev/null)
 CLOUD_ORG_SLUG=$(python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('cloud',d).get('org_slug', d.get('orgSlug','')))" 2>/dev/null)
@@ -40,7 +40,7 @@ LEARN_FILE="$HOME/.showpane/learnings.jsonl"
 
 # Predictive next-skill suggestion
 if [ -f "$HOME/.showpane/timeline.jsonl" ]; then
-  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//')
+  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//' || true)
   [ -n "$_RECENT" ] && echo "RECENT_SKILLS: $_RECENT"
 fi
 
@@ -75,237 +75,12 @@ mention them unless they directly affect the current task.
 
 ## Steps
 
-### Step 0: Choose deployment target
+This skill always publishes to Showpane Cloud.
 
-Check the `DEPLOY_MODE` variable from the preamble. Route accordingly:
+- If `CLOUD_API_TOKEN` is missing, stop and tell the user to run `showpane login`.
+- If `DEPLOY_MODE` is `local`, that is fine — local is the normal authoring mode. The deploy target is still Showpane Cloud.
 
-- If `DEPLOY_MODE` is `"cloud"` — skip to **Cloud Deploy Flow** (after Step 6)
-- If `DEPLOY_MODE` is `"docker"` or `"vercel"` or unset — continue with the existing self-hosted deploy flow (Steps 1-6)
-
-If no deploy mode is configured, present the options:
-
-1. **Self-host with Docker** (free) — Deploy with Docker Compose on your own server
-2. **Showpane Cloud** ($29/month, 7-day free trial) — Managed hosting at {org}.showpane.com
-
-If the user chooses Cloud but has not run `showpane login` yet (no `CLOUD_API_TOKEN`), tell them:
-
-> "Run `showpane login` first to authenticate with Showpane Cloud, then re-run this deploy."
-
-### Step 1: Pre-flight checks
-
-Run all checks before deploying. Any failure here should block the deploy.
-
-#### 1a. TypeScript type check
-
-```bash
-cd "$APP_PATH" && npx tsc --noEmit 2>&1
-```
-
-If type errors are found, display them clearly and stop. Do not deploy with type errors. Common type errors during portal development:
-
-- Missing imports (forgot to import an icon from lucide-react)
-- PortalShell prop mismatch (wrong type for contact, missing required prop)
-- Unused variables in tab content functions
-
-For simple issues (missing import, typo in a prop name), offer to fix them before retrying the deploy. For complex type errors in shared code, suggest the user investigate and fix manually.
-
-The type check typically takes 10-30 seconds depending on project size. If it takes longer than 60 seconds, it may indicate a problem with the TypeScript configuration.
-
-#### 1b. Verify all portals have credentials
-
-Run the list-portals script to check portal status:
-
-```bash
-cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/list-portals.ts" --org-id <org_id>
-```
-
-The output is a JSON array of portals. Check each portal for a `username` field. If any active portal lacks credentials, warn the user:
-
-```
-WARNING: The following portals have no login credentials:
-  - acme-health
-  - new-client
-
-Clients won't be able to log in to these portals.
-Run /portal credentials <slug> to create credentials, or continue anyway?
-```
-
-This is a warning, not a blocker — the user can choose to continue. Some portals may be works in progress that don't need credentials yet.
-
-#### 1c. Verify deployment config exists
-
-**For Docker mode:**
-```bash
-ls "$APP_PATH/docker-compose.yml" 2>/dev/null || ls "$APP_PATH/compose.yml" 2>/dev/null
-```
-
-**For Vercel mode:**
-```bash
-ls "$APP_PATH/.vercel/project.json" 2>/dev/null || ls "$APP_PATH/vercel.json" 2>/dev/null
-```
-
-If the config doesn't exist, inform the user and provide setup guidance:
-- Docker: "No docker-compose.yml found. Create one or switch deploy mode to vercel."
-- Vercel: "No Vercel config found. Run `npx vercel link` to connect your project."
-
-#### 1d. Check for uncommitted changes (Vercel mode only)
-
-For Vercel deploys, check if there are uncommitted changes:
-
-```bash
-cd "$APP_PATH" && git status --porcelain
-```
-
-If there are changes, show the user what will be committed as part of the deploy:
-
-```bash
-cd "$APP_PATH" && git diff --stat
-```
-
-List the changed files and ask the user to confirm. Pay attention to:
-- `.env` files — these should NEVER be committed. If `.env` appears in the changes, warn the user and exclude it.
-- Large binary files — these will slow down the deploy. Suggest adding them to `.gitignore`.
-- Files outside the portal directories — these may be unintended changes.
-
-If there are no changes to commit and the current branch is up to date with the remote, inform the user that there is nothing new to deploy.
-
-### Step 2: Apply database migrations
-
-Before deploying, apply any pending migrations:
-
-```bash
-cd "$APP_PATH" && npx prisma migrate deploy
-```
-
-This runs in production mode — it only applies pending migrations, never creates new ones. If this fails, stop the deploy and show the error. Common issues:
-- DATABASE_URL not set or incorrect
-- Database server unreachable
-- Migration conflicts (rare, requires manual resolution)
-
-### Step 3: Deploy
-
-#### Docker mode
-
-Build and restart the containers:
-
-```bash
-cd "$APP_PATH" && docker compose build && docker compose up -d
-```
-
-If `docker compose` is not available, try `docker-compose` (older syntax):
-
-```bash
-cd "$APP_PATH" && docker-compose build && docker-compose up -d
-```
-
-Wait for the containers to start. Check container status:
-
-```bash
-cd "$APP_PATH" && docker compose ps
-```
-
-All containers should show status "Up" or "running".
-
-#### Vercel mode
-
-Stage, commit, and push:
-
-```bash
-cd "$APP_PATH" && git add -A && git commit -m "Deploy portal updates" && git push
-```
-
-If there are no changes to commit, just push:
-
-```bash
-cd "$APP_PATH" && git push
-```
-
-The push triggers Vercel's automatic deployment pipeline. Note that the deploy is async — the push returns immediately, but the actual deployment takes 1-3 minutes.
-
-For Vercel, inform the user:
-
-> "Pushed to remote. Vercel will build and deploy automatically. Check your Vercel dashboard for deploy status."
-
-### Step 4: Post-deploy verification
-
-#### Docker mode
-
-Wait a few seconds for the app to start, then hit the health endpoint:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/health
-```
-
-Expected: HTTP 200. Then check the response body:
-
-```bash
-curl -s http://localhost:8080/api/health
-```
-
-Expected: `{"status":"ok"}` or similar health response.
-
-If the health check fails:
-1. Check container logs: `cd "$APP_PATH" && docker compose logs --tail=50`
-2. Check if the port is correct (might be 3000, 8080, or custom)
-3. Report the error and suggest debugging steps
-
-#### Vercel mode
-
-If a production URL is known (from config or Vercel project settings), check it:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}" https://<production_url>/api/health
-```
-
-If the production URL is not known, skip the health check and inform the user:
-
-> "Deploy triggered. Verify at your Vercel production URL once the build completes."
-
-### Step 5: Deployment summary
-
-Print a clear summary of what happened:
-
-```
-Deploy complete!
-
-  Mode:       docker
-  Migrations: 2 applied (or: up to date)
-  Type check: passed
-  Portals:    5 active (3 with credentials)
-  Health:     OK (200)
-
-  App URL:    http://localhost:8080
-  Login:      http://localhost:8080/client
-```
-
-For Vercel:
-
-```
-Deploy triggered!
-
-  Mode:       vercel
-  Migrations: up to date
-  Type check: passed
-  Commit:     abc1234 "Deploy portal updates"
-  Portals:    5 active (3 with credentials)
-
-  Status:     Building (check Vercel dashboard)
-  URL:        https://your-app.vercel.app
-```
-
-### Step 6: Record deployment
-
-Log the deployment for operational memory:
-
-```bash
-echo '{"skill":"portal-deploy","key":"deploy","insight":"Deployed via <mode>. Migrations: <count>. Portals: <count> active.","confidence":10,"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> "$HOME/.showpane/learnings.jsonl"
-```
-
----
-
-## Cloud Deploy Flow (when DEPLOY_MODE is "cloud")
-
-This section runs instead of Steps 1-6 when `DEPLOY_MODE` is `"cloud"`. The cloud flow builds the app locally, packages the `.vercel/output` artifact, uploads that artifact to Showpane Cloud, and lets the control plane publish the hosted app. The OSS app should never need to reason about Vercel project IDs or call the Vercel API directly.
+The flow below builds the app locally, packages the `.vercel/output` artifact, uploads that artifact to Showpane Cloud, and lets the control plane publish the hosted app. The OSS app should never need to reason about provider project IDs or call provider APIs directly.
 
 ### Cloud Step 1: Pre-flight checks
 
@@ -328,11 +103,11 @@ If the token is missing, stop and tell the user to run `showpane login`.
 curl -s -o /dev/null -w "%{http_code}" "$CLOUD_API_BASE/api/health"
 ```
 
-Expected: HTTP 200. If Showpane Cloud is unreachable, stop and show the error. Token validity is checked by the deploy API itself — OSS should not call Vercel or depend on provider internals.
+Expected: HTTP 200. If Showpane Cloud is unreachable, stop and show the error. Token validity is checked by the deploy API itself — OSS should not call provider internals directly.
 
 #### 1c. TypeScript type check
 
-Same as the self-hosted flow:
+Run the standard type check:
 
 ```bash
 cd "$APP_PATH" && npx tsc --noEmit 2>&1
@@ -342,14 +117,14 @@ If type errors are found, display them and stop. Offer to fix simple issues (mis
 
 #### 1d. Verify portals have credentials
 
-Same as self-hosted Step 1b — run list-portals and warn about portals missing credentials. This is a warning, not a blocker.
+Run list-portals and warn about portals missing credentials. This is a warning, not a blocker.
 
 ### Cloud Step 2: Build the app
 
-Run a Next.js production build:
+Run the cloud build command that produces the prebuilt artifact:
 
 ```bash
-cd "$APP_PATH" && npx next build
+cd "$APP_PATH" && npm run cloud:build
 ```
 
 After the build completes, verify the output directory was created:
@@ -591,12 +366,12 @@ rm -f "$FILE_MANIFEST_PATH"
 
 ## Post-Deploy Verification
 
-After deployment succeeds (either self-hosted Steps 1-6 or Cloud Steps 1-12), automatically run these verification steps. Do not ask the user — just do them.
+After deployment succeeds, automatically run these verification steps. Do not ask the user — just do them.
 
 ### Step V1: DNS/URL Check
 Fetch the portal URL and verify it returns 200:
 ```bash
-PORTAL_URL="${CLOUD_PORTAL_URL:-http://localhost:3000}"
+PORTAL_URL="${CLOUD_PORTAL_URL:-https://$CLOUD_ORG_SLUG.showpane.com}"
 echo "Verifying $PORTAL_URL..."
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL" 2>/dev/null)
 echo "HTTP status: $HTTP_CODE"
@@ -646,24 +421,17 @@ Next: /portal-status for ongoing monitoring
 
 Deployments can fail at multiple points. Here is how to recover from each:
 
-### Docker build failure
-If `docker compose build` fails:
-- Check the Dockerfile for syntax errors
-- Check that all required files are present (especially `.env` and `prisma/schema.prisma`)
-- Check available disk space — Docker builds can require significant space
-- Try `docker compose build --no-cache` if a cached layer is stale
-
-### Vercel push failure
-If `git push` fails:
-- **Authentication**: Check git credentials or SSH keys
-- **Remote rejection**: The remote may have branch protections. Check if pushing to the correct branch.
-- **Diverged history**: Someone else pushed since your last pull. Run `git pull --rebase` first.
+### Local build failure
+If the local build fails:
+- Check the type and build output directly
+- Check that `.env` contains the expected local SQLite settings
+- Check available disk space for the Next.js build and artifact zip
 
 ### Health check failure
 If the health endpoint returns non-200 after deploy:
-- Check application logs: `docker compose logs --tail=100` (Docker) or Vercel function logs
-- Common causes: missing environment variables, database connection issues, port conflicts
-- For Docker, check if the container is actually running: `docker compose ps`
+- Check the deployment status from `GET /api/deployments/$DEPLOY_ID`
+- Common causes: DNS propagation, hosted runtime config issues, or a bad artifact upload
+- Report the exact hosted error if Showpane Cloud returns one
 
 ### Cloud: Token invalid or auth expired
 If the Showpane Cloud API returns 401/403 during pre-flight or publish:
@@ -688,7 +456,7 @@ If `POST /api/files/plan` or `POST /api/files/upload` fails:
 If the deployment never reaches `live`:
 - Check the response from `GET /api/deployments/$DEPLOY_ID` for an `error` field.
 - Report the failure exactly as returned by Showpane Cloud.
-- Do not tell the user to debug Vercel directly unless the cloud response explicitly points there.
+- Do not tell the user to debug provider internals directly unless the cloud response explicitly points there.
 
 ## Completion
 
@@ -702,20 +470,12 @@ echo '{"skill":"portal-deploy","event":"completed","ts":"'$(date -u +%Y-%m-%dT%H
 
 - Always run pre-flight checks before deploying — never skip the type check
 - Credential warnings are non-blocking — the user decides whether to continue
-- Migrations run before the deploy, not after
-- For Docker: verify the health endpoint after deploy
-- For Vercel: the deploy is async — inform the user to check the dashboard
-- Never force-push or reset git history during Vercel deploys
 - If any pre-flight check fails (type errors, missing deploy config), stop and explain
 - Show the full deployment summary with portal count, migration status, and health
-- The deploy commit message is always "Deploy portal updates" — keep it simple and consistent
-- If the user wants a custom commit message, they should commit manually before running deploy
-- For Vercel deploys, the build typically takes 1-3 minutes — do not poll or wait, just inform the user
-- Always run migrations before the build/push step, never after — the app code expects the latest schema
 - If this is the first deploy, suggest running `/portal credentials` for all portals before deploying so clients can actually log in
 - For Cloud deploys: build locally, upload the artifact to Showpane Cloud, and let the control plane publish it
 - For Cloud deploys: always wait for the deployment to reach `live` before declaring success
 - For Cloud deploys: the portal URL is `https://{org}.showpane.com` — verify it returns 200 after deploy
 - For Cloud deploys: clean up the temporary artifact after deploy completes
 - The CLI `showpane login` is auth only — org creation and billing live in Showpane Cloud checkout
-- For Cloud deploys: OSS should never call Vercel directly or require project/provider details from the user
+- For Cloud deploys: OSS should never call provider APIs directly or require provider details from the user

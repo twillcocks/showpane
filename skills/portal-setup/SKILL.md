@@ -1,7 +1,7 @@
 ---
 name: portal-setup
 description: |
-  Interactive setup wizard for Showpane. Creates config, installs deps, runs migrations, and creates the organization.
+  Interactive setup wizard for Showpane. Creates config, installs deps, applies the local SQLite schema, and creates the organization.
   Trigger phrases: "portal setup", "configure showpane", "set up showpane", "initialize showpane". (showpane)
 allowed-tools: [Bash, Read, Write, Edit, Glob, Grep]
 hooks:
@@ -40,7 +40,7 @@ echo "SHOWPANE: v$SKILL_VERSION | SETUP MODE"
 
 # Predictive next-skill suggestion
 if [ -f "$HOME/.showpane/timeline.jsonl" ]; then
-  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//')
+  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//' || true)
   [ -n "$_RECENT" ] && echo "RECENT_SKILLS: $_RECENT"
 fi
 
@@ -93,7 +93,7 @@ Run the detection:
 
 ```bash
 for candidate in "$(pwd)" "$(pwd)/../app" "$HOME/git/showpane/app" "$HOME/showpane/app"; do
-  if [ -f "$candidate/package.json" ] && [ -f "$candidate/prisma/schema.prisma" ]; then
+  if [ -f "$candidate/package.json" ] && { [ -f "$candidate/prisma/schema.local.prisma" ] || [ -f "$candidate/prisma.config.ts" ]; }; then
     echo "FOUND: $(cd "$candidate" && pwd)"
     break
   fi
@@ -102,7 +102,7 @@ done
 
 If found, confirm with the user: "Found Showpane app at /path/to/app. Use this? (Y/n)"
 
-If not found, ask the user to provide the path. Validate that the path exists and contains both `package.json` and `prisma/schema.prisma`. If either file is missing, the path is not a valid Showpane app directory — explain which file is missing and ask again.
+If not found, ask the user to provide the path. Validate that the path exists and contains `package.json` plus either `prisma/schema.local.prisma` or `prisma.config.ts`. If those markers are missing, the path is not a valid Showpane app directory — explain which file is missing and ask again.
 
 Resolve the path to an absolute path (no `~` or relative components) before storing it. Use `cd "$path" && pwd` to resolve.
 
@@ -117,14 +117,11 @@ When the user is inside a freshly generated Showpane project, the setup should:
 - Still ask for org name, contact details, and website URL
 - Be concise — the user just ran `npx showpane` and wants to get going fast
 
-### Step 3: Ask for deploy mode
+### Step 3: Set the workspace mode
 
-Present the options:
+Use `local` as the setup mode.
 
-- **docker** — Self-hosted with Docker Compose. Best for VPS, dedicated servers, or local development.
-- **vercel** — Deployed via Vercel. Pushes to git trigger automatic deploys.
-
-Default to `docker` if the user doesn't have a preference. Store as `DEPLOY_MODE`.
+Store `DEPLOY_MODE=local` in the config written later in this flow.
 
 ### Step 4: Install dependencies
 
@@ -137,12 +134,12 @@ cd "$APP_PATH" && npm install
 If node_modules exists but `.prisma` client is missing, run:
 
 ```bash
-cd "$APP_PATH" && npx prisma generate
+cd "$APP_PATH" && npm run prisma:generate
 ```
 
 Wait for installation to complete before proceeding.
 
-### Step 5: Run database migrations
+### Step 5: Apply the local database schema
 
 Source the app's `.env` file to get `DATABASE_URL`:
 
@@ -150,24 +147,18 @@ Source the app's `.env` file to get `DATABASE_URL`:
 if [ -f "$APP_PATH/.env" ]; then set -a && source "$APP_PATH/.env" && set +a; fi
 ```
 
-Check if the database has existing tables. For a fresh database:
+The supported setup path is SQLite. Apply the local schema:
 
 ```bash
-cd "$APP_PATH" && npx prisma migrate dev
-```
-
-For an existing database with pending migrations:
-
-```bash
-cd "$APP_PATH" && npx prisma migrate deploy
+cd "$APP_PATH" && npm run prisma:db-push
 ```
 
 If `DATABASE_URL` is not set in `.env`, inform the user they need to configure it. Provide guidance:
-- For local development: `postgresql://postgres:postgres@localhost:5432/showpane`
-- For Docker: the docker-compose.yml should provide it
-- For Vercel: set it in the Vercel dashboard environment variables
+- For local development: `file:./dev.db`
 
-Do NOT proceed until migrations complete successfully.
+If `DATABASE_URL` is set to anything other than a `file:` URL, explain that the supported setup flow is SQLite-first and suggest resetting `.env` back to `file:./dev.db`.
+
+Do NOT proceed until the local schema is applied successfully.
 
 ### Step 6: Create or find Organization record
 
@@ -239,7 +230,7 @@ Write the config file:
 cat > "$HOME/.showpane/config.json" << 'CONFIGEOF'
 {
   "app_path": "<resolved_absolute_path>",
-  "deploy_mode": "<docker|vercel>",
+  "deploy_mode": "local",
   "orgSlug": "<org_slug>",
   "telemetry": "<community|anonymous|off>"
 }
@@ -257,7 +248,7 @@ Display a clear summary:
 Showpane setup complete!
 
   App path:     /path/to/showpane-project
-  Deploy mode:  docker
+  Deploy mode:  local
   Organization: Acme Consulting (acme-consulting)
   Brand color:  #2563eb
   Telemetry:    off
@@ -283,7 +274,7 @@ Each step can fail independently. Handle failures gracefully:
 
 - **App path not found**: Ask the user to run `npx showpane` first or point setup at an existing generated Showpane project
 - **npm install fails**: Check Node.js version (requires 18+), check internet connectivity, suggest clearing `node_modules` and retrying
-- **Prisma migrate fails**: Check DATABASE_URL is correct and the database server is running. For local dev, suggest `docker compose up -d db` if a database service exists in docker-compose.yml
+- **Prisma db push fails**: Check that DATABASE_URL is set to `file:./dev.db` (or another valid SQLite `file:` URL) in `.env`
 - **Organization creation fails**: Check database connectivity. If the Prisma client throws a connection error, verify DATABASE_URL in `.env`
 - **Config write fails**: Check that `$HOME/.showpane/` is writable. On some systems, home directory permissions may block directory creation
 
@@ -306,4 +297,4 @@ echo '{"skill":"portal-setup","event":"completed","ts":"'$(date -u +%Y-%m-%dT%H:
 - If any step fails, provide a clear error message and suggest how to fix it, but do not silently continue
 - The setup wizard is interactive — ask one question at a time, don't dump all questions at once
 - When reconfiguring, show current values as defaults so the user can press enter to keep them
-- The setup wizard should complete in under 5 minutes for a user with all prerequisites (Node.js, Postgres, the repo cloned)
+- The setup wizard should complete in under 5 minutes for a user with Node.js, internet access, and a generated Showpane project

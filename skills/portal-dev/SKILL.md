@@ -28,7 +28,7 @@ echo "APP_PATH: $APP_PATH"
 
 # Predictive next-skill suggestion
 if [ -f "$HOME/.showpane/timeline.jsonl" ]; then
-  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//')
+  _RECENT=$(grep '"event":"completed"' "$HOME/.showpane/timeline.jsonl" 2>/dev/null | tail -3 | grep -o '"skill":"[^"]*"' | sed 's/"skill":"//;s/"//' | tr '\n' ',' | sed 's/,$//' || true)
   [ -n "$_RECENT" ] && echo "RECENT_SKILLS: $_RECENT"
 fi
 
@@ -100,7 +100,7 @@ if [ ! -d "$APP_PATH/node_modules" ]; then
   cd "$APP_PATH" && npm install
 elif [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
   echo "Generating Prisma client..."
-  cd "$APP_PATH" && npx prisma generate
+  cd "$APP_PATH" && npm run prisma:generate
 fi
 ```
 
@@ -117,7 +117,7 @@ else
   echo "WARNING: No .env file found at $APP_PATH/.env"
   echo "The dev server may fail without DATABASE_URL and AUTH_SECRET."
   echo "Create $APP_PATH/.env with at minimum:"
-  echo "  DATABASE_URL=postgresql://postgres:postgres@localhost:5432/showpane"
+  echo "  DATABASE_URL=file:./dev.db"
   echo "  AUTH_SECRET=<any-random-string>"
 fi
 ```
@@ -143,15 +143,19 @@ fi
 
 This is a non-blocking check. If the database is down, the dev server still starts — it just won't be able to serve authenticated portal pages. Static pages and the example portal (which uses hardcoded data) will still work.
 
-### Step 5: Check for pending migrations
+### Step 5: Check whether the local schema is ready
 
 ```bash
-cd "$APP_PATH" && npx prisma migrate status 2>&1 | grep -q "pending"
+if [[ "$DATABASE_URL" == file:* ]]; then
+  echo "SQLite detected; local schema uses db push."
+else
+  echo "Unexpected non-SQLite DATABASE_URL detected. Reset .env to file:./dev.db for the supported local workflow."
+fi
 ```
 
-If there are pending migrations, inform the user:
+If the SQLite schema has not been applied yet, inform the user:
 
-> "There are pending database migrations. Run `cd $APP_PATH && npx prisma migrate dev` to apply them, or they will be applied automatically when you next run `/portal deploy`."
+> "The local database schema has not been applied yet. Run `cd $APP_PATH && npm run prisma:db-push` before continuing."
 
 This is informational only — do not block the dev server start.
 
@@ -232,11 +236,9 @@ Common causes:
 ### Database-related page errors
 If the dev server starts but portal pages show errors:
 - Check the terminal output for Prisma errors
-- Verify DATABASE_URL is correct and the database server is running
-- Run `cd $APP_PATH && npx prisma migrate dev` to ensure the schema is up to date
-- Run `cd $APP_PATH && npx prisma generate` to regenerate the Prisma client if the schema changed
-- If using Docker for the database, ensure the database container is running: `docker compose ps`
-- Check that the database user has the correct permissions for the showpane database
+- Verify DATABASE_URL is correct
+- If `DATABASE_URL` starts with `file:`, run `cd $APP_PATH && npm run prisma:db-push`
+- Run `cd $APP_PATH && npm run prisma:generate` to regenerate the Prisma client if the schema changed
 
 ## Working with the Dev Server
 
@@ -248,7 +250,7 @@ The Next.js dev server watches all files under `src/` for changes. When you edit
 - Adding a new tab: reflected instantly
 - Changing PortalShell props: reflected instantly
 - Adding a new portal directory: requires navigating to the new URL manually (hot reload only works on already-loaded pages)
-- Changing `prisma/schema.prisma`: requires restarting the dev server after running `npx prisma generate`
+- Changing files under `prisma/`: requires restarting the dev server after running `npm run prisma:generate`
 
 ### Accessing portals during development
 

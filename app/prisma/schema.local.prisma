@@ -1,5 +1,5 @@
 // Local development schema — SQLite provider for zero-config local dev.
-// Used by `npx showpane` installer via: prisma db push --schema prisma/schema.local.prisma
+// Canonical Prisma schema for the Showpane app.
 
 generator client {
   provider      = "prisma-client"

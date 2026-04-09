@@ -24,10 +24,6 @@ if [ -n "$command" ]; then
       echo '{"permissionDecision":"ask","message":"⚠️ This SQL command will destroy portal or organization data."}'
       exit 0
       ;;
-    *"vercel"*"rm"*|*"vercel"*"remove"*|*"vercel"*"delete"*)
-      echo '{"permissionDecision":"ask","message":"⚠️ This will delete a Vercel project. Published portals will go offline."}'
-      exit 0
-      ;;
   esac
 fi
 
@@ -38,7 +34,7 @@ if [ -n "$file_path" ]; then
       echo '{"permissionDecision":"ask","message":"⚠️ Modifying credentials/secrets file. Verify this is intentional."}'
       exit 0
       ;;
-    *"prisma/schema.prisma"*)
+    *"prisma/schema.local.prisma"*|*"prisma.config.ts"*)
       echo '{"permissionDecision":"ask","message":"⚠️ Modifying the database schema. This may require a migration."}'
       exit 0
       ;;

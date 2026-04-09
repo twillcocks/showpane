@@ -219,7 +219,8 @@ npm install --silent 2>/dev/null || npm install
 # ─── Generate Prisma client ──────────────────────────────────
 echo ""
 echo "Generating Prisma client..."
-npx prisma generate --schema="$SCRIPT_DIR/app/prisma/schema.prisma"
+cd "$SCRIPT_DIR/app"
+npx prisma generate
 
 # ─── Write initial config if none exists ──────────────────────
 if [ ! -f "$SHOWPANE_DIR/config.json" ]; then
@@ -228,7 +229,7 @@ if [ ! -f "$SHOWPANE_DIR/config.json" ]; then
   cat > "$SHOWPANE_DIR/config.json" << EOF
 {
   "app_path": "$SCRIPT_DIR/app",
-  "deploy_mode": "docker",
+  "deploy_mode": "local",
   "orgSlug": "",
   "telemetry": "off"
 }

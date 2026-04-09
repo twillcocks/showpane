@@ -61,7 +61,7 @@ async function main() {
   const appPath = process.cwd();
   const outputRoot = path.join(appPath, ".vercel", "output");
   if (!statSync(outputRoot, { throwIfNoEntry: false })?.isDirectory()) {
-    fail("Missing .vercel/output. Run a prebuilt Vercel build first.");
+    fail("Missing .vercel/output. Run `npm run cloud:build` first.");
   }
 
   const zip = new AdmZip();

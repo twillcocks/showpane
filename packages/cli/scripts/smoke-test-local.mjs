@@ -64,6 +64,42 @@ async function writeBrowserStub(binDir) {
   }
 }
 
+async function readGeneratedPrismaProvider(projectRoot) {
+  const generatedClient = await fs.readFile(
+    path.join(projectRoot, "src", "generated", "prisma", "internal", "class.ts"),
+    "utf8",
+  );
+  const providerMatch = generatedClient.match(/"activeProvider": "([^"]+)"/);
+
+  if (!providerMatch) {
+    throw new Error("Smoke test failed: could not determine generated Prisma provider.");
+  }
+
+  return providerMatch[1];
+}
+
+async function assertRawPrismaGenerateUsesProvider(projectRoot, databaseUrl, expectedProvider) {
+  await runCommand(
+    npxCommand,
+    ["prisma", "generate"],
+    {
+      cwd: projectRoot,
+      env: {
+        ...process.env,
+        DATABASE_URL: databaseUrl,
+        PRISMA_HIDE_UPDATE_MESSAGE: "1",
+      },
+    },
+  );
+
+  const actualProvider = await readGeneratedPrismaProvider(projectRoot);
+  if (actualProvider !== expectedProvider) {
+    throw new Error(
+      `Smoke test failed: raw prisma generate used ${actualProvider} for ${databaseUrl}, expected ${expectedProvider}.`,
+    );
+  }
+}
+
 async function terminateProcessTree(child) {
   if (!child.pid || child.exitCode !== null) {
     return;
@@ -212,6 +248,9 @@ async function main() {
   const gitDirExists = await fs.stat(path.join(projectRoot, ".git")).then(() => true).catch(() => false);
   const rootPackageExists = await fs.stat(path.join(projectRoot, "package.json")).then(() => true).catch(() => false);
   const nestedAppPackageExists = await fs.stat(path.join(projectRoot, "app", "package.json")).then(() => true).catch(() => false);
+  const generatedPackageJson = JSON.parse(
+    await fs.readFile(path.join(projectRoot, "package.json"), "utf8"),
+  );
   const gitRemoteResult = await runCommand("git", ["remote", "-v"], {
     cwd: projectRoot,
     env: process.env,
@@ -263,6 +302,30 @@ async function main() {
   if (!generatedPrismaClientExists) {
     throw new Error("Smoke test failed: generated Prisma client output is missing.");
   }
+  if ("db:migrate" in (generatedPackageJson.scripts ?? {})) {
+    throw new Error("Smoke test failed: generated project still exposes db:migrate.");
+  }
+
+  for (const relativePath of [
+    "prisma/schema.prisma",
+    "prisma/migrations",
+    ".vercel/project.json",
+    "docker-compose.yml",
+    "docker",
+    "scripts/backup.sh",
+    "scripts/e2e-verify.sh",
+    "scripts/restore.sh",
+  ]) {
+    const exists = await fs
+      .stat(path.join(projectRoot, relativePath))
+      .then(() => true)
+      .catch(() => false);
+    if (exists) {
+      throw new Error(`Smoke test failed: generated project still includes ${relativePath}.`);
+    }
+  }
+
+  await assertRawPrismaGenerateUsesProvider(projectRoot, "file:./dev.db", "sqlite");
   for (const marker of [
     "Showpane is ready",
     "Project:",

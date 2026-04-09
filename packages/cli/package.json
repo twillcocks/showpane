@@ -1,7 +1,7 @@
 {
   "name": "showpane",
-  "version": "0.4.11",
-  "description": "CLI for Showpane \u2014 AI-generated client portals",
+  "version": "0.4.12",
+  "description": "CLI for Showpane — AI-generated client portals",
   "type": "module",
   "bin": {
     "showpane": "./dist/index.js"

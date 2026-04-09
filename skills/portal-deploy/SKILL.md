@@ -247,41 +247,85 @@ for item in json.load(sys.stdin).get(\"missing\", []):
 fi
 ```
 
-### Cloud Step 7: Upload the artifact to Showpane Cloud
+### Cloud Step 7: Start the staged deployment
 
 ```bash
 PORTAL_COUNT=$(cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/list-portals.ts" \
   | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('portals', [])))")
 
-DEPLOY_RESPONSE=$(curl -s -X POST "$CLOUD_API_BASE/api/deployments" \
+INIT_RESPONSE=$(curl -s -X POST "$CLOUD_API_BASE/api/deployments" \
   -H "Authorization: Bearer $CLOUD_API_TOKEN" \
-  -F "artifact=@$ARTIFACT_PATH" \
-  -F "source=claude-portal-deploy" \
-  -F "app_path=$APP_PATH" \
-  -F "portalCount=$PORTAL_COUNT" \
-  -F "runtimeData=@$RUNTIME_DATA_PATH;type=application/json")
+  -H "Content-Type: application/json" \
+  --data-binary '{}')
 
-echo "$DEPLOY_RESPONSE" | python3 -c "
+echo \"$INIT_RESPONSE\" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+if 'error' in d:
+    print('ERROR: ' + str(d['error']))
+    sys.exit(1)
+print('Deployment initialized')
+print('ID: ' + d.get('deploymentId', 'unknown'))
+print('Status: ' + d.get('status', 'unknown'))
+"
+```
+
+Extract the deployment ID and the presigned artifact upload URL from the response. If the API returns an error, show it and stop.
+
+### Cloud Step 8: Upload the artifact directly to storage
+
+```bash
+DEPLOY_ID=$(echo "$INIT_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('deploymentId',''))")
+ARTIFACT_UPLOAD_URL=$(echo "$INIT_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('artifactUploadUrl',''))")
+
+if [ -z "$DEPLOY_ID" ] || [ -z "$ARTIFACT_UPLOAD_URL" ]; then
+  echo "ERROR: Missing deploymentId or artifact upload URL"
+  exit 1
+fi
+
+curl -s -X PUT "$ARTIFACT_UPLOAD_URL" \
+  -H "Content-Type: application/zip" \
+  --data-binary @"$ARTIFACT_PATH" \
+  >/dev/null
+```
+
+### Cloud Step 9: Finalize the deployment
+
+```bash
+FINALIZE_PAYLOAD="/tmp/showpane-deploy-finalize-${DEPLOY_ID}.json"
+python3 - <<'PY' "$RUNTIME_DATA_PATH" "$PORTAL_COUNT" > "$FINALIZE_PAYLOAD"
+import json, sys
+runtime_path = sys.argv[1]
+portal_count = int(sys.argv[2])
+payload = {
+  "portalCount": portal_count,
+  "runtimeData": json.load(open(runtime_path)),
+}
+print(json.dumps(payload))
+PY
+
+FINALIZE_RESPONSE=$(curl -s -X POST "$CLOUD_API_BASE/api/deployments/$DEPLOY_ID/finalize" \
+  -H "Authorization: Bearer $CLOUD_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data-binary @"$FINALIZE_PAYLOAD")
+
+echo "$FINALIZE_RESPONSE" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 if 'error' in d:
     print('ERROR: ' + str(d['error']))
     sys.exit(1)
 print('Deployment accepted')
-print('ID: ' + d.get('deploymentId', d.get('id', 'unknown')))
+print('ID: ' + d.get('deploymentId', 'unknown'))
 print('Status: ' + d.get('status', 'unknown'))
 "
 ```
 
-Extract the deployment ID from the response. If the API returns an error, show it and stop.
-
-### Cloud Step 8: Wait for cloud publish to finish
+### Cloud Step 10: Wait for cloud publish to finish
 
 Poll Showpane Cloud until the deployment reaches `live` or `failed`:
 
 ```bash
-DEPLOY_ID=$(echo "$DEPLOY_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('deploymentId', d.get('id','')))")
-
 echo "Waiting for deployment to go live..."
 for i in $(seq 1 60); do
   sleep 5
@@ -314,7 +358,7 @@ fi
 
 The publish typically takes 15-60 seconds. Poll every 5 seconds for up to 5 minutes.
 
-### Cloud Step 9: Post-deploy verification
+### Cloud Step 11: Post-deploy verification
 
 Once the deployment is live, verify the portal is accessible:
 
@@ -333,7 +377,7 @@ Also check the API health endpoint:
 curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL/api/health"
 ```
 
-### Cloud Step 10: Deployment summary
+### Cloud Step 12: Deployment summary
 
 Print a clear summary:
 
@@ -351,7 +395,7 @@ Cloud deploy complete!
   Deploy ID:  dep_xxxxxxxxxxxx
 ```
 
-### Cloud Step 11: Record deployment
+### Cloud Step 13: Record deployment
 
 Log the cloud deployment for operational memory:
 
@@ -359,7 +403,7 @@ Log the cloud deployment for operational memory:
 echo '{"skill":"portal-deploy","key":"deploy","insight":"Cloud deploy to '$CLOUD_ORG_SLUG'.showpane.com. Migrations: <count>. Portals: <count> active. Deploy ID: '$DEPLOY_ID'.","confidence":10,"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> "$HOME/.showpane/learnings.jsonl"
 ```
 
-### Cloud Step 12: Clean up
+### Cloud Step 14: Clean up
 
 Remove the temporary artifact:
 
@@ -367,6 +411,7 @@ Remove the temporary artifact:
 rm -f "$ARTIFACT_PATH"
 rm -f "$RUNTIME_DATA_PATH"
 rm -f "$FILE_MANIFEST_PATH"
+rm -f "$FINALIZE_PAYLOAD"
 [ -n "${TMP_SYNC_DIR:-}" ] && rm -rf "$TMP_SYNC_DIR"
 ```
 
@@ -448,9 +493,9 @@ If the Showpane Cloud API returns 401/403 during pre-flight or publish:
 - **409 organization_required**: The user authenticated but has no org yet. Send them to Showpane Cloud checkout to start the trial, then re-run `showpane login`.
 
 ### Cloud: Artifact upload failure
-If the POST to `/api/deployments` fails:
-- **400 Bad Request**: The artifact is missing or malformed. Rebuild locally and retry.
-- **413 Payload Too Large**: The build artifact is too large. Remove oversized static assets from the portal app.
+If the deployment init or finalize call fails:
+- **400 Bad Request**: The runtime payload is missing or malformed. Rebuild locally and retry.
+- **409 Conflict**: The deployment was not initialized, the artifact was not uploaded yet, or the org has no hosted project provisioned.
 - **422 Validation Error**: The cloud control plane rejected the deploy metadata. Show the response body directly.
 
 ### Cloud: File sync failure
@@ -482,6 +527,7 @@ echo '{"skill":"portal-deploy","event":"completed","ts":"'$(date -u +%Y-%m-%dT%H
 - Show the full deployment summary with portal count, migration status, and health
 - If this is the first deploy, suggest running `/portal credentials` for all portals before deploying so clients can actually log in
 - For Cloud deploys: build locally, upload the artifact to Showpane Cloud, and let the control plane publish it
+- For Cloud deploys: upload the artifact directly to storage using the presigned URL, not through the deployment function body
 - For Cloud deploys: always wait for the deployment to reach `live` before declaring success
 - For Cloud deploys: the portal URL is `https://{org}.showpane.com` — verify it returns 200 after deploy
 - For Cloud deploys: clean up the temporary artifact after deploy completes

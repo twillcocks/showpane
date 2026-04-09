@@ -1566,6 +1566,9 @@ async function createProject(args: string[]) {
     process.exit(1);
   }
 
+  pathSetup = await maybeConfigureShellPath(config, options);
+  writeShowpaneConfig(config);
+
   console.log();
   blue(`Setting up ${BOLD}${companyName}${RESET} portal as ${DIM}${dirName}/${RESET}`);
   console.log();
@@ -1619,7 +1622,6 @@ async function createProject(args: string[]) {
       deployMode: "local",
       orgSlug: "",
     });
-    pathSetup = await maybeConfigureShellPath(config, options);
     writeShowpaneConfig(config);
     writeProjectState(
       projectRoot,

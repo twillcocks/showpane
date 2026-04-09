@@ -269,7 +269,7 @@ async function main() {
     "App:",
     "Demo:",
     "Next (in a new terminal window):",
-    "Your current terminal is running the local app logs, so open a fresh terminal before you run that command.",
+    "Your current terminal is running the local app logs",
     "Try:",
   ]) {
     if (!output.includes(marker)) {

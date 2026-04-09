@@ -1542,7 +1542,14 @@ async function createProject(args: string[]) {
   printBanner();
   ensureShowpaneShim();
   const config = readShowpaneConfig();
-  const pathSetup = await maybeConfigureShellPath(config, options);
+  let pathSetup: PathSetupResult = {
+    command: getResumeCommand(),
+    configured: isShowpaneShimOnPath() || Boolean(config.shellPathConfigured),
+    profilePath:
+      typeof config.shellPathConfiguredProfile === "string"
+        ? config.shellPathConfiguredProfile
+        : null,
+  };
 
   const companyName = options.companyName ?? await ask(`  ${BOLD}What's your company name?${RESET} `);
   if (!companyName) {
@@ -1612,6 +1619,7 @@ async function createProject(args: string[]) {
       deployMode: "local",
       orgSlug: "",
     });
+    pathSetup = await maybeConfigureShellPath(config, options);
     writeShowpaneConfig(config);
     writeProjectState(
       projectRoot,

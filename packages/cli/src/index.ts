@@ -87,6 +87,23 @@ type ShowpaneConfig = {
   [key: string]: unknown;
 };
 
+type CloudProjectLink = {
+  projectId: string;
+  orgId: string;
+  projectName: string;
+  settings: {
+    createdAt: number;
+    framework: string;
+    devCommand: string | null;
+    installCommand: string | null;
+    buildCommand: string | null;
+    outputDirectory: string | null;
+    rootDirectory: string | null;
+    directoryListing: boolean;
+    nodeVersion: string;
+  };
+};
+
 type UpgradePlan = {
   additions: string[];
   updates: string[];
@@ -838,6 +855,32 @@ function ensureShowpaneShim() {
 
 function ensureDir(dirPath: string) {
   mkdirSync(dirPath, { recursive: true });
+}
+
+async function fetchCloudProjectLink(accessToken: string): Promise<CloudProjectLink> {
+  const res = await fetch(`${API_BASE}/api/cli/project-link`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Could not fetch cloud project link (${res.status}): ${body}`);
+  }
+
+  return res.json();
+}
+
+function writeCloudProjectLink(projectRoot: string, projectLink: CloudProjectLink) {
+  const vercelDir = join(projectRoot, ".vercel");
+  ensureDir(vercelDir);
+  writeJson(join(vercelDir, "project.json"), projectLink);
+}
+
+async function syncCloudProjectLink(projectRoot: string, accessToken: string) {
+  const projectLink = await fetchCloudProjectLink(accessToken);
+  writeCloudProjectLink(projectRoot, projectLink);
 }
 
 function removePath(targetPath: string) {
@@ -1656,6 +1699,14 @@ async function createProject(args: string[]) {
     );
   }
 
+  if (config.accessToken) {
+    try {
+      await syncCloudProjectLink(projectRoot, config.accessToken);
+    } catch {
+      // Project linking is best-effort here; deploy can re-sync later after login.
+    }
+  }
+
   stepStartForCreate("Starting app", options);
   let serverStart: DevServerStart;
   try {
@@ -1912,6 +1963,11 @@ async function login() {
         deployMode: "cloud",
         orgSlug: data.orgSlug,
       });
+      try {
+        await syncCloudProjectLink(currentWorkspace, data.accessToken);
+      } catch {
+        // Best-effort: login still succeeds and deploy can refresh the project link later.
+      }
     } else {
       config.deploy_mode = "cloud";
     }

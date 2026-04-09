@@ -186,7 +186,7 @@ EOF
   exit 0
 fi
 
-# ─── Self-hosted setup flow (default) ────────────────────────
+# ─── Showpane setup flow ─────────────────────────────────────
 
 echo "=== Showpane Setup ==="
 echo ""

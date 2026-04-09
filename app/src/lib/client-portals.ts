@@ -77,6 +77,10 @@ export async function getClientPortalId(
   organizationId: string,
   slug: string
 ): Promise<string | null> {
+  if (isRuntimeSnapshotMode()) {
+    return null;
+  }
+
   const portal = await prisma.clientPortal.findFirst({
     where: { organizationId, slug, isActive: true },
     select: { id: true },

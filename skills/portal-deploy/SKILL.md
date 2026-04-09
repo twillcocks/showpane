@@ -121,6 +121,14 @@ Run list-portals and warn about portals missing credentials. This is a warning, 
 
 ### Cloud Step 2: Build the app
 
+Before building, ensure the hidden local project-link metadata exists:
+
+```bash
+if [ ! -f "$APP_PATH/.vercel/project.json" ]; then
+  cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/ensure-cloud-project-link.ts"
+fi
+```
+
 Run the cloud build command that produces the prebuilt artifact:
 
 ```bash

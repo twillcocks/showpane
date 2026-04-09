@@ -79,8 +79,10 @@ export interface RuntimeStatePayload {
   portals: RuntimePortalSnapshot[];
 }
 
-export function isPortalEventType(value: string): value is PortalEventType {
-  return (PORTAL_EVENT_TYPES as readonly string[]).includes(value);
+const PORTAL_EVENT_TYPE_SET = new Set<string>(PORTAL_EVENT_TYPES);
+
+export function isPortalEventType(value: unknown): value is PortalEventType {
+  return typeof value === "string" && PORTAL_EVENT_TYPE_SET.has(value);
 }
 
 export function toCloudPortalEventPayload(

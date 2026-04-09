@@ -1,6 +1,6 @@
 {
   "name": "showpane",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "CLI for Showpane — AI-generated client portals",
   "type": "module",
   "bin": {
@@ -8,11 +8,12 @@
   },
   "files": [
     "dist",
+    "bundle",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
+    "build": "node scripts/build-bundle.mjs && tsup src/index.ts --format esm --dts --clean",
     "dev": "tsx src/index.ts",
     "smoke:test-local": "node scripts/smoke-test-local.mjs",
     "prepublishOnly": "npm run build"

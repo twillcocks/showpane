@@ -28,7 +28,7 @@ if [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
   echo "App dependencies not installed. Run: cd $APP_PATH && npm install"
   exit 1
 fi
-SKILL_DIR="$(dirname "$APP_PATH")"
+SKILL_DIR="${SHOWPANE_TOOLCHAIN_DIR:-$HOME/.showpane/current}"
 SKILL_VERSION=$(cat "$SKILL_DIR/VERSION" 2>/dev/null || echo "unknown")
 echo "SHOWPANE: v$SKILL_VERSION | MODE: $DEPLOY_MODE | APP: $APP_PATH"
 LEARN_FILE="$HOME/.showpane/learnings.jsonl"
@@ -78,7 +78,7 @@ If the user provided a slug (e.g., `/portal create acme-health`), use it. Otherw
 Validate the slug by running:
 
 ```bash
-cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/check-slug.ts" --slug <slug> --org-id <org_id>
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/check-slug.ts" --slug <slug> --org-id <org_id>
 ```
 
 The script returns `{"valid":true}` or `{"valid":false,"reason":"...","message":"..."}`. If invalid:
@@ -251,7 +251,7 @@ Import only the icons you need from `lucide-react`. Common choices:
 Run the create-portal script to register the portal in the database:
 
 ```bash
-cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/create-portal.ts" --slug <slug> --company "<client_company_name>" --org-id <org_id>
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/create-portal.ts" --slug <slug> --company "<client_company_name>" --org-id <org_id>
 ```
 
 This creates the `ClientPortal` record with the slug, company name, and links it to the Organization. It does NOT create credentials — that is a separate step via `/portal credentials`.

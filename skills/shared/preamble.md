@@ -18,7 +18,7 @@ export DEPLOY_MODE="${_cfg_deploy_mode:-local}"
 export ORG_SLUG="${_cfg_org_slug:-}"
 
 if [ -z "$APP_PATH" ]; then
-  echo "ERROR: APP_PATH not set. Run: showpane-config set app_path /path/to/showpane/app" >&2
+  echo "ERROR: APP_PATH not set. Run: showpane-config set app_path /path/to/showpane-project" >&2
   exit 1
 fi
 
@@ -37,7 +37,7 @@ if [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
 fi
 
 # 4. Version check
-SKILL_DIR="$(dirname "$APP_PATH")"
+SKILL_DIR="${SHOWPANE_TOOLCHAIN_DIR:-$HOME/.showpane/current}"
 SKILL_VERSION=$(head -1 "$SKILL_DIR/skills/VERSION" 2>/dev/null | cut -d' ' -f1 || echo "unknown")
 APP_VERSION=$(head -1 "$APP_PATH/VERSION" 2>/dev/null || echo "unknown")
 APP_REQUIRED=$(head -1 "$SKILL_DIR/skills/VERSION" 2>/dev/null | grep -oP '(?<=app >= )\S+' || echo "unknown")
@@ -133,5 +133,5 @@ If a checkpoint exists when a skill starts, offer to resume:
 
 All bin/ scripts run via:
 ```bash
-cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$SKILL_DIR/bin/tsconfig.json" "$SKILL_DIR/bin/script.ts" [args]
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/script.ts" [args]
 ```

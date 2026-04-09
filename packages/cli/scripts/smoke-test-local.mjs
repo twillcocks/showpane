@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -8,10 +9,15 @@ import path from "node:path";
 const cliDir = path.resolve(import.meta.dirname, "..");
 const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
 const requiredMarkers = [
-  "Database ready",
-  "Example portal seeded",
-  "Ready!",
+  "Project created",
+  "Dependencies installed",
+  "Database configured",
+  "Claude skills installed",
+  "Showpane is ready",
 ];
+const packageVersion = JSON.parse(
+  readFileSync(path.join(cliDir, "package.json"), "utf8")
+).version;
 
 function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -201,6 +207,68 @@ async function main() {
 
   await finish;
   await terminateProcessTree(child);
+
+  const projectRoot = path.join(testRoot, "showpane-bidgen");
+  const gitDirExists = await fs.stat(path.join(projectRoot, ".git")).then(() => true).catch(() => false);
+  const rootPackageExists = await fs.stat(path.join(projectRoot, "package.json")).then(() => true).catch(() => false);
+  const nestedAppPackageExists = await fs.stat(path.join(projectRoot, "app", "package.json")).then(() => true).catch(() => false);
+  const gitRemoteResult = await runCommand("git", ["remote", "-v"], {
+    cwd: projectRoot,
+    env: process.env,
+  });
+  const toolchainRoot = path.join(os.homedir(), ".showpane", "toolchains", packageVersion);
+  const toolchainExists = await fs.stat(toolchainRoot).then(() => true).catch(() => false);
+  const projectedSkillExists = await fs.stat(path.join(os.homedir(), ".claude", "skills", "portal-create", "SKILL.md")).then(() => true).catch(() => false);
+  const generatedPrismaClientExists = await fs.stat(path.join(projectRoot, "src", "generated", "prisma", "client.ts")).then(() => true).catch(() => false);
+
+  if (output.includes("Cloning into")) {
+    throw new Error("Smoke test failed: installer still used git clone output.");
+  }
+  if (output.includes("Update available 6.19.2 -> 7.7.0")) {
+    throw new Error("Smoke test failed: Prisma update notifier is still present.");
+  }
+  if (output.includes("You did not specify an output path for your `generator`")) {
+    throw new Error("Smoke test failed: Prisma output-path deprecation warning is still present.");
+  }
+  if (output.includes("packages are looking for funding")) {
+    throw new Error("Smoke test failed: npm funding output is still present.");
+  }
+  if (output.includes("high severity vulnerabilities") || output.includes("npm audit fix")) {
+    throw new Error("Smoke test failed: npm audit output is still present.");
+  }
+  if (output.includes("Available skills:")) {
+    throw new Error("Smoke test failed: legacy success screen still shows the skills list.");
+  }
+  if (output.includes("Don't have Claude Code?")) {
+    throw new Error("Smoke test failed: legacy Claude Code promo is still present.");
+  }
+  if (output.includes("Open Claude Code and create your first portal:")) {
+    throw new Error("Smoke test failed: legacy success copy is still present.");
+  }
+  if (output.includes("Git repository initialized")) {
+    throw new Error("Smoke test failed: git initialization leaked outside the stepper.");
+  }
+  if (!gitDirExists) {
+    throw new Error("Smoke test failed: generated project is missing a .git directory.");
+  }
+  if (!rootPackageExists || nestedAppPackageExists) {
+    throw new Error("Smoke test failed: generated project layout is not app-at-root.");
+  }
+  if (gitRemoteResult.stdout.trim() || gitRemoteResult.stderr.trim()) {
+    throw new Error(`Smoke test failed: generated project has git remotes.\n${gitRemoteResult.stdout}${gitRemoteResult.stderr}`);
+  }
+  if (!toolchainExists || !projectedSkillExists) {
+    throw new Error("Smoke test failed: global toolchain or projected Claude skills were not installed.");
+  }
+  if (!generatedPrismaClientExists) {
+    throw new Error("Smoke test failed: generated Prisma client output is missing.");
+  }
+  for (const marker of ["Showpane is ready", "Project:", "App:", "Demo:", "Next:", "Try:"]) {
+    if (!output.includes(marker)) {
+      throw new Error(`Smoke test failed: success card marker missing: ${marker}`);
+    }
+  }
+
   console.log("\nSmoke test passed.");
   console.log(`Artifacts: ${testRoot}`);
 }

@@ -26,7 +26,7 @@ if [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
   echo "App dependencies not installed. Run: cd $APP_PATH && npm install"
   exit 1
 fi
-SKILL_DIR="$(dirname "$APP_PATH")"
+SKILL_DIR="${SHOWPANE_TOOLCHAIN_DIR:-$HOME/.showpane/current}"
 SKILL_VERSION=$(cat "$SKILL_DIR/VERSION" 2>/dev/null || echo "unknown")
 echo "SHOWPANE: v$SKILL_VERSION | MODE: $DEPLOY_MODE | APP: $APP_PATH"
 LEARN_FILE="$HOME/.showpane/learnings.jsonl"
@@ -80,7 +80,7 @@ The health score is a composite 0-10 rating that weights recent activity, creden
 Run the list script to get all active portals:
 
 ```bash
-cd $APP_PATH && npx tsx $SKILL_DIR/bin/list-portals.ts --org-id <org_id>
+cd $APP_PATH && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig $APP_PATH/tsconfig.json $SKILL_DIR/bin/list-portals.ts --org-id <org_id>
 ```
 
 This returns the list of portals with their metadata (slug, company name, status, last updated, credential info).
@@ -99,7 +99,7 @@ SHOWPANE STATUS DASHBOARD
 For each portal in the list, query analytics:
 
 ```bash
-cd $APP_PATH && npx tsx $SKILL_DIR/bin/query-analytics.ts --slug <slug> --org-id <org_id>
+cd $APP_PATH && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig $APP_PATH/tsconfig.json $SKILL_DIR/bin/query-analytics.ts --slug <slug> --org-id <org_id>
 ```
 
 If you have many portals (5+), you can batch the queries. For a small number, sequential calls are fine. The script should return quickly for each portal.

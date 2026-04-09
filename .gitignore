@@ -8,6 +8,8 @@ node_modules/
 *.db
 *.db-journal
 dist/
+packages/cli/bundle/
+packages/cli/showpane-*.tgz
 .vercel
 .next/
 platform/

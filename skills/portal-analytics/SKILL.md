@@ -26,7 +26,7 @@ if [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
   echo "App dependencies not installed. Run: cd $APP_PATH && npm install"
   exit 1
 fi
-SKILL_DIR="$(dirname "$APP_PATH")"
+SKILL_DIR="${SHOWPANE_TOOLCHAIN_DIR:-$HOME/.showpane/current}"
 SKILL_VERSION=$(cat "$SKILL_DIR/VERSION" 2>/dev/null || echo "unknown")
 echo "SHOWPANE: v$SKILL_VERSION | MODE: $DEPLOY_MODE | APP: $APP_PATH"
 LEARN_FILE="$HOME/.showpane/learnings.jsonl"
@@ -89,13 +89,13 @@ Capture the slug (if any) and the ORG_SLUG from the preamble output for the next
 Run the analytics query script. For a specific portal:
 
 ```bash
-cd $APP_PATH && npx tsx $SKILL_DIR/bin/query-analytics.ts --slug <slug> --org-id <org_id>
+cd $APP_PATH && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig $APP_PATH/tsconfig.json $SKILL_DIR/bin/query-analytics.ts --slug <slug> --org-id <org_id>
 ```
 
 For all portals (omit the `--slug` flag):
 
 ```bash
-cd $APP_PATH && npx tsx $SKILL_DIR/bin/query-analytics.ts --org-id <org_id>
+cd $APP_PATH && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig $APP_PATH/tsconfig.json $SKILL_DIR/bin/query-analytics.ts --org-id <org_id>
 ```
 
 The script returns JSON on stdout. Expected shape for a single portal:

@@ -16,6 +16,8 @@
 # misc
 .DS_Store
 *.pem
+*.db
+*.db-journal
 
 # debug
 npm-debug.log*
@@ -32,6 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/src/generated/
 
 # uploads
 /uploads/

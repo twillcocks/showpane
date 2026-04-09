@@ -9,7 +9,7 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/../shared/bin/check-portal-guard.sh"
+          command: "bash ${CLAUDE_SKILL_DIR}/../showpane-shared/bin/check-portal-guard.sh"
 ---
 
 ## Preamble (run first)
@@ -34,7 +34,7 @@ else
   echo "No config found. Starting fresh setup."
 fi
 
-SKILL_DIR="$(dirname "$APP_PATH")"
+SKILL_DIR="${SHOWPANE_TOOLCHAIN_DIR:-$HOME/.showpane/current}"
 SKILL_VERSION=$(head -1 "$SKILL_DIR/skills/VERSION" 2>/dev/null | cut -d' ' -f1 || echo "unknown")
 echo "SHOWPANE: v$SKILL_VERSION | SETUP MODE"
 
@@ -86,7 +86,7 @@ Try to find the Showpane app automatically by checking these locations in order:
 
 1. Current working directory — look for `package.json` containing `"name"` with "showpane" in it
 2. Parent directory — check `../app/` for the same
-3. Common locations: `~/git/showpane/app/`, `~/showpane/app/`
+3. Common locations: `~/git/showpane/`, `~/showpane/`
 4. The `SHOWPANE_APP_PATH` environment variable
 
 Run the detection:
@@ -108,14 +108,14 @@ Resolve the path to an absolute path (no `~` or relative components) before stor
 
 Store the resolved absolute path as `APP_PATH`.
 
-#### npx Mode
+#### Packaged Installer Mode
 
-When `setup_source` is `"npx"` (set by the npx installer), the setup should:
-- Skip the app_path detection (already known from the installer)
-- Skip the deploy mode question (default to docker for local dev)
+When the user is inside a freshly generated Showpane project, the setup should:
+- Prefer the current working directory as `APP_PATH`
+- Skip any suggestion to clone the upstream Showpane repository
 - Auto-detect SQLite from DATABASE_URL (if it starts with "file:" it's SQLite)
 - Still ask for org name, contact details, and website URL
-- Be more concise — the user just ran `npx showpane` and wants to get going fast
+- Be concise — the user just ran `npx showpane` and wants to get going fast
 
 ### Step 3: Ask for deploy mode
 
@@ -256,7 +256,7 @@ Display a clear summary:
 ```
 Showpane setup complete!
 
-  App path:     /path/to/showpane/app
+  App path:     /path/to/showpane-project
   Deploy mode:  docker
   Organization: Acme Consulting (acme-consulting)
   Brand color:  #2563eb
@@ -281,7 +281,7 @@ echo '{"skill":"portal-setup","key":"initial-setup","insight":"Setup completed. 
 
 Each step can fail independently. Handle failures gracefully:
 
-- **App path not found**: Ask the user to clone the Showpane repo first (`git clone https://github.com/showpane/showpane.git`)
+- **App path not found**: Ask the user to run `npx showpane` first or point setup at an existing generated Showpane project
 - **npm install fails**: Check Node.js version (requires 18+), check internet connectivity, suggest clearing `node_modules` and retrying
 - **Prisma migrate fails**: Check DATABASE_URL is correct and the database server is running. For local dev, suggest `docker compose up -d db` if a database service exists in docker-compose.yml
 - **Organization creation fails**: Check database connectivity. If the Prisma client throws a connection error, verify DATABASE_URL in `.env`

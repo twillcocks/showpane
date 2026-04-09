@@ -9,11 +9,11 @@ hooks:
     - matcher: "Bash"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/../shared/bin/check-portal-guard.sh"
+          command: "bash ${CLAUDE_SKILL_DIR}/../showpane-shared/bin/check-portal-guard.sh"
     - matcher: "Edit"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/../shared/bin/check-portal-guard.sh"
+          command: "bash ${CLAUDE_SKILL_DIR}/../showpane-shared/bin/check-portal-guard.sh"
 ---
 
 ## Preamble (run first)
@@ -35,7 +35,7 @@ if [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
   echo "App dependencies not installed. Run: cd $APP_PATH && npm install"
   exit 1
 fi
-SKILL_DIR="$(dirname "$APP_PATH")"
+SKILL_DIR="${SHOWPANE_TOOLCHAIN_DIR:-$HOME/.showpane/current}"
 SKILL_VERSION=$(cat "$SKILL_DIR/VERSION" 2>/dev/null || echo "unknown")
 echo "SHOWPANE: v$SKILL_VERSION | MODE: $DEPLOY_MODE | APP: $APP_PATH"
 LEARN_FILE="$HOME/.showpane/learnings.jsonl"
@@ -83,7 +83,7 @@ mention them unless they directly affect the current task.
 If the user provided a slug (e.g., `/portal credentials acme-health`), use it. Otherwise, list available portals to help the user choose:
 
 ```bash
-cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/list-portals.ts" --org-id <org_id>
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/list-portals.ts" --org-id <org_id>
 ```
 
 Present the list and ask which portal needs credentials. If there is only one portal, confirm it rather than asking.
@@ -103,7 +103,7 @@ This confirmation is important because credential rotation has an immediate impa
 This script handles both initial credential creation and rotation:
 
 ```bash
-cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/rotate-credentials.ts" --slug <slug> --org-id <org_id>
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/rotate-credentials.ts" --slug <slug> --org-id <org_id>
 ```
 
 The script returns JSON on stdout:

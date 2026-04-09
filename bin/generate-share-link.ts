@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/lib/prisma-client";
 import { buildAndSignToken, SHARE_TOKEN_MAX_AGE_SECONDS } from "@/lib/token";
 
 function fail(message: string): never {

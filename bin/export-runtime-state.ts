@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/lib/prisma-client";
 
 function fail(message: string): never {
   console.error(JSON.stringify({ ok: false, error: message }));

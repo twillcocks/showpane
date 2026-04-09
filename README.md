@@ -10,6 +10,13 @@ npx showpane
 
 One command sets up everything: SQLite database, dependencies, dev server. Your browser opens to a welcome page that teaches you the next step.
 
+Then open the generated project:
+
+```bash
+cd showpane-<your-company-slug>
+claude
+```
+
 Then in Claude Code:
 
 ```
@@ -25,6 +32,7 @@ Run on your own infrastructure. Unlimited portals, single operator.
 
 ```bash
 npx showpane           # Local dev with SQLite
+cd showpane-<your-company-slug>
 docker compose up -d   # Production with PostgreSQL + Caddy
 ```
 
@@ -72,7 +80,7 @@ Templates are reference implementations. `/portal create` reads them for inspira
 ## Self-Hosting with Docker
 
 ```bash
-cd app
+cd showpane-<your-company-slug>
 cp .env.example .env
 # Edit .env — set DATABASE_URL (PostgreSQL) and AUTH_SECRET
 
@@ -83,7 +91,7 @@ docker compose exec portal npx prisma db seed
 
 Visit http://localhost:8080 and log in with `example` / `demo-only-password`.
 
-## Development
+## Development (Repo)
 
 ```bash
 cd app

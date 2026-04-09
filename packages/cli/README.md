@@ -11,11 +11,24 @@ npx showpane
 ## Commands
 
 ### `npx showpane` (default)
-Scaffold a new Showpane portal project. Sets up Next.js, Prisma, and example portal.
+Scaffold a new Showpane portal project. Unpacks a version-pinned scaffold, installs the global Showpane toolchain, sets up Prisma, and starts the local app.
+
+Flags:
+
+- `--name <company>` — provide the company name non-interactively
+- `--yes` — skip prompts when paired with `--name`
+- `--no-open` — do not open the local app in the browser
+- `--verbose` — stream raw install logs instead of the quiet installer view
 
 ### `showpane login`
 Authenticate with Showpane Cloud for hosted portal deployment.
 This is auth only — org creation and billing happen in the Showpane Cloud web app.
+
+### `showpane sync`
+Install or refresh the global Showpane toolchain and Claude Code skills for the current CLI version.
+
+### `showpane upgrade`
+Upgrade a generated Showpane project using packaged scaffold assets instead of upstream git history.
 
 ## Requirements
 

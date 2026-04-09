@@ -32,7 +32,7 @@ if [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
   echo "App dependencies not installed. Run: cd $APP_PATH && npm install"
   exit 1
 fi
-SKILL_DIR="$(dirname "$APP_PATH")"
+SKILL_DIR="${SHOWPANE_TOOLCHAIN_DIR:-$HOME/.showpane/current}"
 SKILL_VERSION=$(cat "$SKILL_DIR/VERSION" 2>/dev/null || echo "unknown")
 echo "SHOWPANE: v$SKILL_VERSION | MODE: $DEPLOY_MODE | APP: $APP_PATH"
 LEARN_FILE="$HOME/.showpane/learnings.jsonl"
@@ -116,7 +116,7 @@ The type check typically takes 10-30 seconds depending on project size. If it ta
 Run the list-portals script to check portal status:
 
 ```bash
-cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/list-portals.ts" --org-id <org_id>
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/list-portals.ts" --org-id <org_id>
 ```
 
 The output is a JSON array of portals. Check each portal for a `username` field. If any active portal lacks credentials, warn the user:
@@ -372,7 +372,7 @@ Package the prebuilt output plus the traced runtime files as a single zip artifa
 ```bash
 ARTIFACT_PATH="/tmp/showpane-deploy-${CLOUD_ORG_SLUG:-portal}.zip"
 rm -f "$ARTIFACT_PATH"
-cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/create-deploy-bundle.ts" --output "$ARTIFACT_PATH"
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/create-deploy-bundle.ts" --output "$ARTIFACT_PATH"
 test -f "$ARTIFACT_PATH" || { echo "ERROR: Artifact zip was not created"; exit 1; }
 echo "Artifact ready: $ARTIFACT_PATH"
 ```
@@ -385,9 +385,9 @@ Export the current local portal-runtime state so Showpane Cloud can sync credent
 RUNTIME_DATA_PATH="/tmp/showpane-runtime-${CLOUD_ORG_SLUG:-portal}.json"
 rm -f "$RUNTIME_DATA_PATH"
 if [ -n "$ORG_SLUG" ]; then
-  cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/export-runtime-state.ts" --org-slug "$ORG_SLUG" > "$RUNTIME_DATA_PATH"
+  cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-runtime-state.ts" --org-slug "$ORG_SLUG" > "$RUNTIME_DATA_PATH"
 else
-  cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/export-runtime-state.ts" > "$RUNTIME_DATA_PATH"
+  cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-runtime-state.ts" > "$RUNTIME_DATA_PATH"
 fi
 test -f "$RUNTIME_DATA_PATH" || { echo "ERROR: Runtime payload was not created"; exit 1; }
 echo "Runtime payload ready: $RUNTIME_DATA_PATH"
@@ -401,9 +401,9 @@ Export uploaded document metadata and checksums so Showpane Cloud can determine 
 FILE_MANIFEST_PATH="/tmp/showpane-files-${CLOUD_ORG_SLUG:-portal}.json"
 rm -f "$FILE_MANIFEST_PATH"
 if [ -n "$ORG_SLUG" ]; then
-  cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/export-file-manifest.ts" --org-slug "$ORG_SLUG" > "$FILE_MANIFEST_PATH"
+  cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-file-manifest.ts" --org-slug "$ORG_SLUG" > "$FILE_MANIFEST_PATH"
 else
-  cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/export-file-manifest.ts" > "$FILE_MANIFEST_PATH"
+  cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-file-manifest.ts" > "$FILE_MANIFEST_PATH"
 fi
 test -f "$FILE_MANIFEST_PATH" || { echo "ERROR: File manifest was not created"; exit 1; }
 echo "File manifest ready: $FILE_MANIFEST_PATH"
@@ -447,7 +447,7 @@ for item in json.load(sys.stdin).get(\"missing\", []):
     ]))
 ' | while IFS=$'\t' read -r STORAGE_PATH PORTAL_SLUG FILE_NAME MIME_TYPE FILE_SIZE UPLOADED_BY UPLOADED_AT CHECKSUM; do
     TMP_FILE="$TMP_SYNC_DIR/$CHECKSUM"
-    cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/materialize-file.ts" --storage-path "$STORAGE_PATH" --output "$TMP_FILE"
+    cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/materialize-file.ts" --storage-path "$STORAGE_PATH" --output "$TMP_FILE"
     curl -s -X POST "$CLOUD_API_BASE/api/files/upload" \
       -H "Authorization: Bearer $CLOUD_API_TOKEN" \
       -F "file=@$TMP_FILE;type=$MIME_TYPE" \
@@ -467,7 +467,7 @@ fi
 ### Cloud Step 7: Upload the artifact to Showpane Cloud
 
 ```bash
-PORTAL_COUNT=$(cd "$APP_PATH" && npx tsx "$SKILL_DIR/bin/list-portals.ts" \
+PORTAL_COUNT=$(cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/list-portals.ts" \
   | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('portals', [])))")
 
 DEPLOY_RESPONSE=$(curl -s -X POST "$CLOUD_API_BASE/api/deployments" \

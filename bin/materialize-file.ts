@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { readFile_ } from "../app/src/lib/storage";
+import { readFile_ } from "@/lib/storage";
 
 function fail(message: string): never {
   console.error(JSON.stringify({ error: message }));

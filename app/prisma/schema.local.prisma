@@ -2,7 +2,8 @@
 // Used by `npx showpane` installer via: prisma db push --schema prisma/schema.local.prisma
 
 generator client {
-  provider      = "prisma-client-js"
+  provider      = "prisma-client"
+  output        = "../src/generated/prisma"
   binaryTargets = ["native"]
 }
 

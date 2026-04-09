@@ -6,6 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SHOWPANE_DIR="${HOME}/.showpane"
+CURRENT_TOOLCHAIN_LINK="${SHOWPANE_DIR}/current"
 
 # ─── Argument parsing ────────────────────────────────────────
 CLOUD_MODE=false
@@ -34,9 +35,16 @@ install_skills() {
   local source_dir="$1"
   local skills_dir="${HOME}/.claude/skills"
   mkdir -p "$skills_dir"
+  mkdir -p "$SHOWPANE_DIR"
 
   # Clean up old-style single symlink
   rm -f "$skills_dir/showpane" 2>/dev/null
+  rm -rf "$skills_dir/showpane-shared" 2>/dev/null
+  ln -snf "$source_dir/skills/shared" "$skills_dir/showpane-shared"
+  ln -snf "$source_dir" "$CURRENT_TOOLCHAIN_LINK"
+
+  mkdir -p "$SHOWPANE_DIR/bin"
+  ln -snf "$source_dir/bin/showpane-config" "$SHOWPANE_DIR/bin/showpane-config"
 
   local count=0
   local installed=()

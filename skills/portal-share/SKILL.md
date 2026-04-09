@@ -29,7 +29,7 @@ if [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
   echo "App dependencies not installed. Run: cd $APP_PATH && npm install"
   exit 1
 fi
-SKILL_DIR="$(dirname "$APP_PATH")"
+SKILL_DIR="${SHOWPANE_TOOLCHAIN_DIR:-$HOME/.showpane/current}"
 SKILL_VERSION=$(cat "$SKILL_DIR/VERSION" 2>/dev/null || echo "unknown")
 echo "SHOWPANE: v$SKILL_VERSION | MODE: $DEPLOY_MODE | APP: $APP_PATH"
 LEARN_FILE="$HOME/.showpane/learnings.jsonl"
@@ -89,7 +89,7 @@ Do not proceed without a slug. Share links are portal-specific.
 Run the share link generator:
 
 ```bash
-cd $APP_PATH && npx tsx $SKILL_DIR/bin/generate-share-link.ts --slug <slug> --org-id <org_id>
+cd $APP_PATH && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig $APP_PATH/tsconfig.json $SKILL_DIR/bin/generate-share-link.ts --slug <slug> --org-id <org_id>
 ```
 
 The script reads AUTH_SECRET from the app's `.env` file (sourced by the preamble) and uses the `signShareToken` function from the app's `client-auth.ts` module. It constructs a full URL using NEXT_PUBLIC_APP_URL (also from `.env`).

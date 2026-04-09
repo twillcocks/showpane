@@ -1,6 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/lib/prisma-client";
 import { createHash } from "node:crypto";
-import { readFile_ } from "../app/src/lib/storage";
+import { readFile_ } from "@/lib/storage";
 
 function fail(message: string): never {
   console.error(JSON.stringify({ error: message }));

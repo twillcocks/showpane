@@ -1,0 +1,44 @@
+{
+  "name": "showpane",
+  "version": "0.4.0",
+  "description": "CLI for Showpane — AI-generated client portals",
+  "type": "module",
+  "bin": {
+    "showpane": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "showpane",
+    "client-portal",
+    "claude-code",
+    "portal",
+    "scaffolding",
+    "cli"
+  ],
+  "author": "twillcocks",
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/twillcocks/showpane.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://showpane.com",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

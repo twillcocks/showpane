@@ -1,0 +1,2 @@
+ALTER TABLE "PortalFile"
+ADD COLUMN IF NOT EXISTS "checksum" TEXT;

@@ -1,0 +1,130 @@
+// Local development schema — SQLite provider for zero-config local dev.
+// Used by `npx showpane` installer via: prisma db push --schema prisma/schema.local.prisma
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+
+  // Branding
+  logoUrl       String?
+  primaryColor  String   @default("#111827")
+  portalLabel   String   @default("Client Portal")
+  websiteUrl    String?
+
+  // Contact (displayed in portal footer + login)
+  contactName   String
+  contactTitle  String
+  contactEmail  String
+  contactPhone  String?
+  contactAvatar String?
+  supportEmail  String
+
+  // Domain
+  customDomain  String?  @unique
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  members       Member[]
+  portals       ClientPortal[]
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String       @default("owner")
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  passwordHash  String?
+  createdAt     DateTime @default(now())
+
+  members       Member[]
+}
+
+model ClientPortal {
+  id                String       @id @default(cuid())
+  organizationId    String
+  slug              String
+  companyName       String
+  logoUrl           String?
+
+  // Auth
+  username          String
+  passwordHash      String
+  credentialVersion String       @default(cuid())
+  isActive          Boolean      @default(true)
+
+  // Meta
+  lastUpdated       String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  events            PortalEvent[]
+  files             PortalFile[]
+
+  @@unique([organizationId, slug])
+  @@unique([organizationId, username])
+}
+
+model PortalEvent {
+  id          String       @id @default(cuid())
+  portalId    String
+  event       String
+  detail      String?
+  visitorId   String?
+  metadata    String?
+  ipAddress   String?
+  createdAt   DateTime     @default(now())
+
+  portal      ClientPortal @relation(fields: [portalId], references: [id], onDelete: Cascade)
+
+  @@index([portalId, createdAt])
+  @@index([visitorId])
+}
+
+model PortalFile {
+  id          String       @id @default(cuid())
+  portalId    String
+  filename    String
+  mimeType    String
+  storagePath String       @unique
+  checksum    String?
+  size        Int
+  uploadedBy  String       @default("operator")
+  uploadedAt  DateTime     @default(now())
+
+  portal      ClientPortal @relation(fields: [portalId], references: [id], onDelete: Cascade)
+
+  @@index([portalId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}

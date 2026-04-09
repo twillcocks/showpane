@@ -81,6 +81,9 @@ type ShowpaneConfig = {
   orgSlug?: string;
   portalUrl?: string | null;
   vercelProjectId?: string | null;
+  shellPathConfigured?: boolean;
+  shellPathConfiguredProfile?: string | null;
+  shellPathPrompted?: boolean;
   workspaces?: WorkspaceEntry[];
   [key: string]: unknown;
 };
@@ -364,6 +367,125 @@ function getResumeHint() {
     : `Optional: add ${SHOWPANE_BIN_DIR} to your PATH to use ${BOLD}showpane${RESET} directly.`;
 }
 
+function shellPathExportLine() {
+  return `export PATH="$HOME/.showpane/bin:$PATH"`;
+}
+
+function detectShellProfile() {
+  if (process.platform === "win32") {
+    return null;
+  }
+
+  const shell = basename(process.env.SHELL || "");
+  if (shell === "zsh") {
+    return join(homedir(), ".zshrc");
+  }
+  if (shell === "bash") {
+    return process.platform === "darwin"
+      ? join(homedir(), ".bash_profile")
+      : join(homedir(), ".bashrc");
+  }
+  if (shell === "fish") {
+    return join(homedir(), ".config", "fish", "config.fish");
+  }
+  return null;
+}
+
+function ensureShellPathEntry(profilePath: string) {
+  ensureDir(dirname(profilePath));
+  const exportLine = shellPathExportLine();
+  const contents = existsSync(profilePath) ? readFileSync(profilePath, "utf8") : "";
+
+  if (contents.includes(exportLine) || contents.includes(SHOWPANE_BIN_DIR)) {
+    return false;
+  }
+
+  const prefix = contents.length > 0 && !contents.endsWith("\n") ? "\n" : "";
+  writeFileSync(profilePath, `${contents}${prefix}${exportLine}\n`);
+  return true;
+}
+
+type PathSetupResult = {
+  command: string;
+  configured: boolean;
+  profilePath: string | null;
+};
+
+async function maybeConfigureShellPath(config: ShowpaneConfig, options: CreateOptions): Promise<PathSetupResult> {
+  const configuredProfile =
+    typeof config.shellPathConfiguredProfile === "string"
+      ? config.shellPathConfiguredProfile
+      : null;
+
+  if (isShowpaneShimOnPath()) {
+    config.shellPathConfigured = true;
+    config.shellPathPrompted = true;
+    return {
+      command: "showpane claude",
+      configured: true,
+      profilePath: configuredProfile,
+    };
+  }
+
+  if (config.shellPathConfigured) {
+    return {
+      command: "showpane claude",
+      configured: true,
+      profilePath: configuredProfile,
+    };
+  }
+
+  if (options.yes || !process.stdin.isTTY || !process.stdout.isTTY) {
+    config.shellPathPrompted = true;
+    config.shellPathConfigured = false;
+    return {
+      command: "npx showpane claude",
+      configured: false,
+      profilePath: configuredProfile,
+    };
+  }
+
+  const profilePath = detectShellProfile();
+  if (!profilePath) {
+    config.shellPathPrompted = true;
+    config.shellPathConfigured = false;
+    return {
+      command: "npx showpane claude",
+      configured: false,
+      profilePath: null,
+    };
+  }
+
+  const answer = await ask(
+    `  ${BOLD}Add Showpane to your PATH so 'showpane' works in future terminals?${RESET} ${DIM}(recommended) [Y/n]${RESET} `
+  );
+
+  if (answer && !["y", "yes"].includes(answer.toLowerCase())) {
+    config.shellPathPrompted = true;
+    config.shellPathConfigured = false;
+    config.shellPathConfiguredProfile = profilePath;
+    return {
+      command: "npx showpane claude",
+      configured: false,
+      profilePath,
+    };
+  }
+
+  ensureShellPathEntry(profilePath);
+  config.shellPathPrompted = true;
+  config.shellPathConfigured = true;
+  config.shellPathConfiguredProfile = profilePath;
+
+  console.log();
+  green(`Added Showpane to your PATH in ${DIM}${profilePath}${RESET}`);
+
+  return {
+    command: "showpane claude",
+    configured: true,
+    profilePath,
+  };
+}
+
 function getCommandOutput(errorLike: unknown) {
   const error = errorLike as {
     stdout?: Buffer | string;
@@ -399,13 +521,57 @@ function runQuiet(command: string, cwd?: string, env?: NodeJS.ProcessEnv) {
   }
 }
 
-function runInstallerCommand(command: string, cwd: string, env: NodeJS.ProcessEnv, verbose: boolean) {
+async function runQuietAsync(command: string, cwd?: string, env?: NodeJS.ProcessEnv) {
+  const child = spawn(command, {
+    cwd,
+    env: env ? { ...process.env, ...env } : process.env,
+    shell: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  let output = "";
+  const appendOutput = (chunk: Buffer | string) => {
+    output += chunk.toString();
+    if (output.length > 20 * 1024 * 1024) {
+      output = output.slice(-20 * 1024 * 1024);
+    }
+  };
+
+  child.stdout?.on("data", appendOutput);
+  child.stderr?.on("data", appendOutput);
+
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    child.on("error", (errorLike) => {
+      rejectPromise(
+        new StepCommandError(
+          errorLike instanceof Error ? errorLike.message : String(errorLike),
+          output.trim(),
+        ),
+      );
+    });
+
+    child.on("close", (code, signal) => {
+      if (code === 0) {
+        resolvePromise();
+        return;
+      }
+
+      const reason = signal
+        ? `Command terminated with signal ${signal}`
+        : `Command exited with code ${code ?? "unknown"}`;
+
+      rejectPromise(new StepCommandError(reason, output.trim()));
+    });
+  });
+}
+
+async function runInstallerCommand(command: string, cwd: string, env: NodeJS.ProcessEnv, verbose: boolean) {
   if (verbose) {
     run(command, cwd, env);
     return;
   }
 
-  runQuiet(command, cwd, env);
+  await runQuietAsync(command, cwd, env);
 }
 
 let activeSpinner: StepSpinner | null = null;
@@ -944,41 +1110,41 @@ function applyUpgradePlan(projectRoot: string, scaffoldSource: string, plan: Upg
   }
 }
 
-function installDependencies(projectRoot: string, verbose?: boolean) {
+async function installDependencies(projectRoot: string, verbose?: boolean) {
   if (existsSync(join(projectRoot, "package-lock.json"))) {
     if (verbose === undefined) {
       run("npm ci", projectRoot, getInstallerEnv());
     } else {
-      runInstallerCommand("npm ci", projectRoot, getInstallerEnv(), verbose);
+      await runInstallerCommand("npm ci", projectRoot, getInstallerEnv(), verbose);
     }
   } else {
     if (verbose === undefined) {
       run("npm install", projectRoot, getInstallerEnv());
     } else {
-      runInstallerCommand("npm install", projectRoot, getInstallerEnv(), verbose);
+      await runInstallerCommand("npm install", projectRoot, getInstallerEnv(), verbose);
     }
   }
 }
 
-function generateLocalDatabase(projectRoot: string, databaseUrl: string, verbose?: boolean) {
+async function generateLocalDatabase(projectRoot: string, databaseUrl: string, verbose?: boolean) {
   const env = getInstallerEnv({
     DATABASE_URL: databaseUrl,
   });
   if (verbose === undefined) {
     run("npm run prisma:db-push", projectRoot, env);
   } else {
-    runInstallerCommand("npm run prisma:db-push", projectRoot, env, verbose);
+    await runInstallerCommand("npm run prisma:db-push", projectRoot, env, verbose);
   }
 }
 
-function seedProject(projectRoot: string, databaseUrl: string, verbose?: boolean) {
+async function seedProject(projectRoot: string, databaseUrl: string, verbose?: boolean) {
   const env = getInstallerEnv({
     DATABASE_URL: databaseUrl,
   });
   if (verbose === undefined) {
     run("npx tsx prisma/seed.ts", projectRoot, env);
   } else {
-    runInstallerCommand("npx tsx prisma/seed.ts", projectRoot, env, verbose);
+    await runInstallerCommand("npx tsx prisma/seed.ts", projectRoot, env, verbose);
   }
 }
 
@@ -1059,9 +1225,8 @@ function installSharedSkillProjection(toolchainRoot: string) {
   );
 }
 
-function printCreateSuccessCard(projectRoot: string, url: string) {
-  const resumeCommand = getResumeCommand();
-  const resumeHint = getResumeHint();
+function printCreateSuccessCard(projectRoot: string, url: string, pathSetup: PathSetupResult) {
+  const resumeCommand = pathSetup.command;
   console.log();
   console.log(`  ${GREEN}Showpane is ready${RESET}`);
   console.log();
@@ -1072,13 +1237,17 @@ function printCreateSuccessCard(projectRoot: string, url: string) {
   console.log(`  ${BOLD}Next (in a new terminal window):${RESET}`);
   console.log(`    ${DIM}${resumeCommand}${RESET}`);
   console.log();
-  console.log(`  ${DIM}Your current terminal is running the local app logs, so open a fresh terminal before you run that command.${RESET}`);
+  if (pathSetup.configured && pathSetup.profilePath) {
+    console.log(`  ${DIM}Your current terminal is running the local app logs. Open a fresh terminal so ${BOLD}showpane${RESET}${DIM} is available from ${pathSetup.profilePath}.${RESET}`);
+  } else {
+    console.log(`  ${DIM}Your current terminal is running the local app logs, so open a fresh terminal before you run that command.${RESET}`);
+  }
   console.log();
   console.log(`  ${BOLD}Try:${RESET}`);
   console.log(`    ${DIM}Create a portal for my call with Acme Health${RESET}`);
-  if (resumeHint) {
+  if (!pathSetup.configured) {
     console.log();
-    console.log(`  ${DIM}${resumeHint}${RESET}`);
+    console.log(`  ${DIM}${getResumeHint()}${RESET}`);
   }
   console.log();
 }
@@ -1372,6 +1541,8 @@ async function createProject(args: string[]) {
 
   printBanner();
   ensureShowpaneShim();
+  const config = readShowpaneConfig();
+  const pathSetup = await maybeConfigureShellPath(config, options);
 
   const companyName = options.companyName ?? await ask(`  ${BOLD}What's your company name?${RESET} `);
   if (!companyName) {
@@ -1392,21 +1563,21 @@ async function createProject(args: string[]) {
   blue(`Setting up ${BOLD}${companyName}${RESET} portal as ${DIM}${dirName}/${RESET}`);
   console.log();
 
-  stepStartForCreate("Create project", options);
+  stepStartForCreate("Creating project", options);
   try {
     copyScaffoldFiles(join(bundleRoot, "scaffold"), projectRoot, scaffoldManifest);
     stepSuccessForCreate("Project created");
   } catch (errorLike) {
-    stepFailureForCreate("Create project", errorLike);
+    stepFailureForCreate("Creating project", errorLike);
   }
 
-  stepStartForCreate("Install dependencies", options);
+  stepStartForCreate("Installing dependencies", options);
   try {
-    installDependencies(projectRoot, options.verbose);
+    await installDependencies(projectRoot, options.verbose);
     stepSuccessForCreate("Dependencies installed");
   } catch (errorLike) {
     stepFailureForCreate(
-      "Install dependencies",
+      "Installing dependencies",
       errorLike,
       "Check your Node.js version and network connection, then try again."
     );
@@ -1419,24 +1590,23 @@ async function createProject(args: string[]) {
     `DATABASE_URL="${databaseUrl}"\nAUTH_SECRET="${authSecret}"\n`
   );
 
-  stepStartForCreate("Configure database", options);
+  stepStartForCreate("Configuring database", options);
   try {
-    generateLocalDatabase(projectRoot, databaseUrl, options.verbose);
-    seedProject(projectRoot, databaseUrl, options.verbose);
+    await generateLocalDatabase(projectRoot, databaseUrl, options.verbose);
+    await seedProject(projectRoot, databaseUrl, options.verbose);
     stepSuccessForCreate("Database configured");
   } catch (errorLike) {
     stepFailureForCreate(
-      "Configure database",
+      "Configuring database",
       errorLike,
       "Check Prisma setup and the generated .env file, then retry the install."
     );
   }
 
-  stepStartForCreate("Install Claude skills", options);
+  stepStartForCreate("Installing Claude skills", options);
   let toolchainInfo: ReturnType<typeof syncToolchain>;
   try {
     toolchainInfo = syncToolchain(bundleRoot, showpaneVersion, false);
-    const config = readShowpaneConfig();
     updateWorkspaceFromConfig(config, projectRoot, {
       name: dirName,
       deployMode: "local",
@@ -1453,13 +1623,13 @@ async function createProject(args: string[]) {
     stepSuccessForCreate("Claude skills installed");
   } catch (errorLike) {
     stepFailureForCreate(
-      "Install Claude skills",
+      "Installing Claude skills",
       errorLike,
       "Check permissions for ~/.showpane and ~/.claude/skills, then try again."
     );
   }
 
-  stepStartForCreate("Start app", options);
+  stepStartForCreate("Starting app", options);
   let serverStart: DevServerStart;
   try {
     serverStart = await startDevServer(
@@ -1470,13 +1640,13 @@ async function createProject(args: string[]) {
     );
   } catch (errorLike) {
     stepFailureForCreate(
-      "Start app",
+      "Starting app",
       errorLike,
       `Run ${BOLD}cd ${dirName} && npm run dev${RESET} for more detail.`
     );
   }
 
-  printCreateSuccessCard(projectRoot, serverStart.url);
+  printCreateSuccessCard(projectRoot, serverStart.url, pathSetup);
 
   serverStart.devServer.on("close", (code) => {
     if (code !== 0) {

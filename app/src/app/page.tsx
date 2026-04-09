@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getRuntimeState, isRuntimeSnapshotMode } from "@/lib/runtime-state";
 import { ArrowUpRight, BookOpen, Command, MessageSquareQuote } from "lucide-react";
 import Link from "next/link";
+import { existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -16,7 +17,20 @@ const PROMPT_EXAMPLES = [
 export default async function Home() {
   let portalCount = 0;
   const showpaneBinDir = path.join(os.homedir(), ".showpane", "bin");
-  const prefersCanonicalCommand = (process.env.PATH ?? "").split(path.delimiter).includes(showpaneBinDir);
+  const configPath = path.join(os.homedir(), ".showpane", "config.json");
+  const configShellPathConfigured = existsSync(configPath)
+    ? (() => {
+        try {
+          const raw = readFileSync(configPath, "utf8");
+          return Boolean((JSON.parse(raw) as { shellPathConfigured?: boolean }).shellPathConfigured);
+        } catch {
+          return false;
+        }
+      })()
+    : false;
+  const prefersCanonicalCommand =
+    configShellPathConfigured ||
+    (process.env.PATH ?? "").split(path.delimiter).includes(showpaneBinDir);
   const primaryCommand = "showpane claude";
   const fallbackCommand = "npx showpane claude";
   try {

@@ -1,6 +1,6 @@
 {
   "name": "showpane",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "CLI for Showpane — AI-generated client portals",
   "type": "module",
   "bin": {

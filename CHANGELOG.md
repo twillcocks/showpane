@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3 (2026-04-09)
+
+### Changed — Installer Progress
+- **Animated create-flow progress fixed** — the `npx showpane` installer now drives long-running setup commands through a non-blocking path, so the spinner can actually animate during dependency install, database setup, and app startup
+- **More natural in-progress labels** — setup steps now read as `Creating`, `Installing`, `Configuring`, and `Starting` while work is underway, instead of showing the past-tense step names before anything has finished
+- **First-run PATH setup prompt** — interactive installs now offer to add `~/.showpane/bin` to your shell PATH once, so future terminals can run `showpane claude` directly instead of falling back to `npx showpane claude`
+
 ## 0.2.2 (2026-04-09)
 
 ### Changed — First Run Clarity

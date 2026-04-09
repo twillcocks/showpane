@@ -24,6 +24,18 @@ Flags:
 Authenticate with Showpane Cloud for hosted portal deployment.
 This is auth only — org creation and billing happen in the Showpane Cloud web app.
 
+### `showpane claude`
+Resume your Showpane workspace by launching Claude Code in the right project directory.
+
+Flags:
+
+- `--project <name-or-path>` — open a specific remembered workspace
+- `--yes` / `--name <company>` — only used when no workspace exists yet and Showpane needs to create the first one
+- `--verbose` — show raw setup logs during first-time onboarding
+
+### `showpane projects`
+List remembered Showpane workspaces and show which one is currently active for global skills.
+
 ### `showpane sync`
 Install or refresh the global Showpane toolchain and Claude Code skills for the current CLI version.
 

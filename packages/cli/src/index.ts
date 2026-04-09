@@ -24,7 +24,7 @@ const {
   writeFileSync,
 } = fs;
 
-const { dirname, join, resolve } = path;
+const { basename, dirname, join, resolve } = path;
 const { homedir } = os;
 
 const RESET = "\x1b[0m";
@@ -37,6 +37,7 @@ const RED = "\x1b[31m";
 
 const API_BASE = "https://app.showpane.com";
 const SHOWPANE_HOME = join(homedir(), ".showpane");
+const SHOWPANE_BIN_DIR = join(SHOWPANE_HOME, "bin");
 const TOOLCHAIN_DIR = join(SHOWPANE_HOME, "toolchains");
 const CURRENT_TOOLCHAIN_LINK = join(SHOWPANE_HOME, "current");
 const CLAUDE_SKILLS_DIR = join(homedir(), ".claude", "skills");
@@ -64,6 +65,26 @@ type ProjectMetadata = {
   lastUpgradedAt: string;
 };
 
+type WorkspaceEntry = {
+  name: string;
+  path: string;
+  lastUsedAt: string;
+  deployMode: string;
+  orgSlug: string;
+};
+
+type ShowpaneConfig = {
+  accessToken?: string;
+  accessTokenExpiresAt?: string | null;
+  app_path?: string;
+  deploy_mode?: string;
+  orgSlug?: string;
+  portalUrl?: string | null;
+  vercelProjectId?: string | null;
+  workspaces?: WorkspaceEntry[];
+  [key: string]: unknown;
+};
+
 type UpgradePlan = {
   additions: string[];
   updates: string[];
@@ -76,6 +97,16 @@ type CreateOptions = {
   noOpen: boolean;
   verbose: boolean;
   yes: boolean;
+};
+
+type ClaudeCommandOptions = CreateOptions & {
+  project?: string;
+};
+
+type StepSpinner = {
+  interval: NodeJS.Timeout;
+  label: string;
+  startedAt: number;
 };
 
 class StepCommandError extends Error {
@@ -102,6 +133,10 @@ function error(message: string) {
 
 function printCreateUsage() {
   console.log("Usage: showpane [--yes --name <company>] [--no-open] [--verbose]");
+}
+
+function printClaudeUsage() {
+  console.log("Usage: showpane claude [--project <name-or-path>] [--yes --name <company>] [--verbose]");
 }
 
 function printBanner() {
@@ -171,6 +206,61 @@ function parseCreateArgs(args: string[]): CreateOptions {
 
   if (options.yes && !options.companyName) {
     throw new Error("`--yes` requires `--name <company>` for a non-interactive install.");
+  }
+
+  return options;
+}
+
+function parseClaudeArgs(args: string[]): ClaudeCommandOptions {
+  const options: ClaudeCommandOptions = {
+    noOpen: false,
+    verbose: false,
+    yes: false,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === "--yes") {
+      options.yes = true;
+      continue;
+    }
+
+    if (arg === "--no-open") {
+      options.noOpen = true;
+      continue;
+    }
+
+    if (arg === "--verbose") {
+      options.verbose = true;
+      continue;
+    }
+
+    if (arg === "--name") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Missing value for --name.");
+      }
+      options.companyName = value.trim();
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--project") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Missing value for --project.");
+      }
+      options.project = value.trim();
+      index += 1;
+      continue;
+    }
+
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  if (options.project && options.companyName) {
+    throw new Error("`--project` can not be combined with `--name`.");
   }
 
   return options;
@@ -250,6 +340,30 @@ function maybePrintShowpaneUpdateMessage(currentVersion: string) {
   }
 }
 
+function normalizePathForComparison(targetPath: string) {
+  const normalized = path.normalize(resolve(targetPath));
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function isShowpaneShimOnPath() {
+  const pathValue = process.env.PATH ?? "";
+  const binDir = normalizePathForComparison(SHOWPANE_BIN_DIR);
+  return pathValue
+    .split(path.delimiter)
+    .filter(Boolean)
+    .some((entry) => normalizePathForComparison(entry) === binDir);
+}
+
+function getResumeCommand() {
+  return isShowpaneShimOnPath() ? "showpane claude" : "npx showpane claude";
+}
+
+function getResumeHint() {
+  return isShowpaneShimOnPath()
+    ? null
+    : `Optional: add ${SHOWPANE_BIN_DIR} to your PATH to use ${BOLD}showpane${RESET} directly.`;
+}
+
 function getCommandOutput(errorLike: unknown) {
   const error = errorLike as {
     stdout?: Buffer | string;
@@ -294,17 +408,57 @@ function runInstallerCommand(command: string, cwd: string, env: NodeJS.ProcessEn
   runQuiet(command, cwd, env);
 }
 
-function stepStart(label: string) {
-  blue(label);
+let activeSpinner: StepSpinner | null = null;
+
+function renderSpinner(label: string, frame: string, startedAt: number) {
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  const elapsed = elapsedSeconds > 0 ? ` ${DIM}${elapsedSeconds}s${RESET}` : "";
+  process.stdout.write(`\r  ${BLUE}${frame}${RESET} ${label}...${elapsed}\x1b[K`);
+}
+
+function stopSpinner(clearLine = true) {
+  if (!activeSpinner) return;
+  clearInterval(activeSpinner.interval);
+  if (clearLine) {
+    process.stdout.write("\r\x1b[K");
+  } else {
+    process.stdout.write("\n");
+  }
+  activeSpinner = null;
+}
+
+function stepStart(label: string, spinner = false) {
+  stopSpinner();
+  if (!spinner) {
+    blue(label);
+    return;
+  }
+
+  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  let frameIndex = 0;
+  const startedAt = Date.now();
+  renderSpinner(label, frames[frameIndex], startedAt);
+  const interval = setInterval(() => {
+    frameIndex = (frameIndex + 1) % frames.length;
+    renderSpinner(label, frames[frameIndex], startedAt);
+  }, 80);
+
+  activeSpinner = {
+    interval,
+    label,
+    startedAt,
+  };
 }
 
 function stepSuccess(label: string) {
+  stopSpinner();
   green(label);
 }
 
 function stepFailure(label: string, errorLike: unknown, hint?: string): never {
+  stopSpinner();
   error(`${label} failed.`);
-
+ 
   const message = errorLike instanceof Error ? errorLike.message : String(errorLike);
   const output =
     errorLike instanceof StepCommandError
@@ -327,6 +481,35 @@ function stepFailure(label: string, errorLike: unknown, hint?: string): never {
   process.exit(1);
 }
 
+function shouldUseSpinner(verbose: boolean) {
+  return process.stdout.isTTY && !verbose;
+}
+
+function stepStartForCreate(label: string, options: CreateOptions) {
+  stepStart(label, shouldUseSpinner(options.verbose));
+}
+
+function stepSuccessForCreate(label: string) {
+  stepSuccess(label);
+}
+
+function stepFailureForCreate(label: string, errorLike: unknown, hint?: string): never {
+  stepFailure(label, errorLike, hint);
+}
+
+function attachSpinnerCleanup() {
+  const cleanup = () => stopSpinner();
+  process.on("exit", cleanup);
+  process.on("SIGINT", cleanup);
+  process.on("SIGTERM", cleanup);
+}
+
+attachSpinnerCleanup();
+
+function stepStartPlain(label: string) {
+  blue(label);
+}
+
 function openBrowser(url: string) {
   const platform = process.platform;
   const command =
@@ -346,6 +529,123 @@ function readJson<T>(filePath: string): T {
 function writeJson(filePath: string, value: unknown) {
   mkdirSync(dirname(filePath), { recursive: true });
   writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function getShowpaneConfigPath() {
+  return join(SHOWPANE_HOME, "config.json");
+}
+
+function readShowpaneConfig(): ShowpaneConfig {
+  const configPath = getShowpaneConfigPath();
+  if (!existsSync(configPath)) {
+    return {};
+  }
+  return readJson<ShowpaneConfig>(configPath);
+}
+
+function writeShowpaneConfig(config: ShowpaneConfig) {
+  ensureDir(SHOWPANE_HOME);
+  const configPath = getShowpaneConfigPath();
+  writeJson(configPath, config);
+  chmodSync(configPath, 0o600);
+}
+
+function findWorkspaceRoot(startPath: string) {
+  let currentPath = resolve(startPath);
+
+  while (true) {
+    if (
+      existsSync(join(currentPath, "package.json")) &&
+      existsSync(join(currentPath, "prisma", "schema.prisma")) &&
+      existsSync(getProjectMetadataPath(currentPath))
+    ) {
+      return currentPath;
+    }
+
+    const parentPath = dirname(currentPath);
+    if (parentPath === currentPath) {
+      return null;
+    }
+    currentPath = parentPath;
+  }
+}
+
+function defaultWorkspaceEntry(projectPath: string, overrides?: Partial<WorkspaceEntry>): WorkspaceEntry {
+  return {
+    name: basename(projectPath),
+    path: resolve(projectPath),
+    lastUsedAt: new Date().toISOString(),
+    deployMode: "local",
+    orgSlug: "",
+    ...overrides,
+  };
+}
+
+function getWorkspaceEntries(config: ShowpaneConfig) {
+  const workspaces = [...(config.workspaces ?? [])];
+  const activePath = config.app_path ? resolve(config.app_path) : null;
+
+  if (activePath && !workspaces.some((workspace) => normalizePathForComparison(workspace.path) === normalizePathForComparison(activePath))) {
+    workspaces.push(defaultWorkspaceEntry(activePath, {
+      deployMode: typeof config.deploy_mode === "string" ? config.deploy_mode : "local",
+      orgSlug: typeof config.orgSlug === "string" ? config.orgSlug : "",
+    }));
+  }
+
+  return workspaces
+    .map((workspace) => ({
+      ...workspace,
+      path: resolve(workspace.path),
+      lastUsedAt: workspace.lastUsedAt || new Date(0).toISOString(),
+      deployMode: workspace.deployMode || "local",
+      orgSlug: workspace.orgSlug || "",
+    }))
+    .sort((left, right) => right.lastUsedAt.localeCompare(left.lastUsedAt));
+}
+
+function setActiveWorkspace(config: ShowpaneConfig, workspace: WorkspaceEntry) {
+  config.app_path = workspace.path;
+  config.deploy_mode = workspace.deployMode;
+  config.orgSlug = workspace.orgSlug;
+}
+
+function upsertWorkspace(config: ShowpaneConfig, workspace: WorkspaceEntry, makeActive = true) {
+  const workspaces = getWorkspaceEntries(config).filter((entry) =>
+    normalizePathForComparison(entry.path) !== normalizePathForComparison(workspace.path)
+  );
+  workspaces.push(workspace);
+  config.workspaces = workspaces.sort((left, right) => right.lastUsedAt.localeCompare(left.lastUsedAt));
+  if (makeActive) {
+    setActiveWorkspace(config, workspace);
+  }
+}
+
+function updateWorkspaceFromConfig(config: ShowpaneConfig, projectPath: string, overrides?: Partial<WorkspaceEntry>) {
+  const workspace = defaultWorkspaceEntry(projectPath, {
+    deployMode: typeof config.deploy_mode === "string" ? config.deploy_mode : "local",
+    orgSlug: typeof config.orgSlug === "string" ? config.orgSlug : "",
+    ...overrides,
+  });
+  upsertWorkspace(config, workspace, true);
+  return workspace;
+}
+
+function ensureShowpaneShim() {
+  ensureDir(SHOWPANE_BIN_DIR);
+
+  const shellShim = join(SHOWPANE_BIN_DIR, "showpane");
+  writeFileSync(
+    shellShim,
+    "#!/bin/sh\nexec npx --yes showpane \"$@\"\n"
+  );
+  chmodSync(shellShim, 0o755);
+
+  if (process.platform === "win32") {
+    writeFileSync(
+      join(SHOWPANE_BIN_DIR, "showpane.cmd"),
+      "@echo off\r\nnpx --yes showpane %*\r\n"
+    );
+  }
 }
 
 function ensureDir(dirPath: string) {
@@ -759,7 +1059,9 @@ function installSharedSkillProjection(toolchainRoot: string) {
   );
 }
 
-function printCreateSuccessCard(projectRoot: string, projectName: string, url: string) {
+function printCreateSuccessCard(projectRoot: string, url: string) {
+  const resumeCommand = getResumeCommand();
+  const resumeHint = getResumeHint();
   console.log();
   console.log(`  ${GREEN}Showpane is ready${RESET}`);
   console.log();
@@ -768,10 +1070,14 @@ function printCreateSuccessCard(projectRoot: string, projectName: string, url: s
   console.log(`  ${BOLD}Demo:${RESET}    example / demo-only-password`);
   console.log();
   console.log(`  ${BOLD}Next:${RESET}`);
-  console.log(`    ${DIM}cd ${projectName} && claude${RESET}`);
+  console.log(`    ${DIM}${resumeCommand}${RESET}`);
   console.log();
   console.log(`  ${BOLD}Try:${RESET}`);
   console.log(`    ${DIM}Create a portal for my call with Acme Health${RESET}`);
+  if (resumeHint) {
+    console.log();
+    console.log(`  ${DIM}${resumeHint}${RESET}`);
+  }
   console.log();
 }
 
@@ -779,6 +1085,10 @@ type DevServerStart = {
   devServer: ReturnType<typeof spawn>;
   url: string;
 };
+
+type ClaudeWorkspaceSelection =
+  | { mode: "create" }
+  | { mode: "open"; workspace: WorkspaceEntry };
 
 function startDevServer(
   projectRoot: string,
@@ -846,6 +1156,110 @@ function startDevServer(
         : `Dev server exited with code ${code} before becoming ready.`;
 
       rejectStart(new StepCommandError(message, bufferedOutput.trim()));
+    });
+  });
+}
+
+function resolveWorkspaceSelection(config: ShowpaneConfig, specifier?: string) {
+  const workspaces = getWorkspaceEntries(config);
+
+  if (!specifier) {
+    return workspaces;
+  }
+
+  const asPathRoot = findWorkspaceRoot(specifier);
+  if (asPathRoot) {
+    return [defaultWorkspaceEntry(asPathRoot)];
+  }
+
+  const normalizedSpecifier = normalizePathForComparison(specifier);
+  const pathMatches = workspaces.filter((workspace) =>
+    normalizePathForComparison(workspace.path) === normalizedSpecifier
+  );
+  if (pathMatches.length > 0) {
+    return pathMatches;
+  }
+
+  const nameMatches = workspaces.filter((workspace) => workspace.name === specifier);
+  return nameMatches;
+}
+
+async function promptWorkspaceSelection(workspaces: WorkspaceEntry[]) {
+  console.log();
+  console.log(`  ${BOLD}Select a Showpane workspace${RESET}`);
+  console.log();
+
+  for (const [index, workspace] of workspaces.entries()) {
+    console.log(`  ${index + 1}. ${workspace.name}`);
+    console.log(`     ${DIM}${workspace.path}${RESET}`);
+    console.log(`     ${DIM}Last used: ${workspace.lastUsedAt}${RESET}`);
+  }
+
+  console.log();
+  while (true) {
+    const answer = await ask(`  ${BOLD}Choose a workspace [1-${workspaces.length}] or q to cancel:${RESET} `);
+    if (!answer) continue;
+    if (answer.toLowerCase() === "q") {
+      process.exit(0);
+    }
+
+    const selectedIndex = Number.parseInt(answer, 10);
+    if (Number.isInteger(selectedIndex) && selectedIndex >= 1 && selectedIndex <= workspaces.length) {
+      return workspaces[selectedIndex - 1];
+    }
+  }
+}
+
+function printWorkspaceList(config: ShowpaneConfig) {
+  printBanner();
+  const workspaces = getWorkspaceEntries(config);
+
+  if (workspaces.length === 0) {
+    console.log();
+    blue("No Showpane workspaces found");
+    console.log(`  ${DIM}Run: npx showpane${RESET}`);
+    console.log();
+    return;
+  }
+
+  const activePath = config.app_path ? normalizePathForComparison(config.app_path) : null;
+  console.log();
+  console.log(`  ${BOLD}Showpane workspaces${RESET}`);
+  console.log();
+
+  for (const [index, workspace] of workspaces.entries()) {
+    const isActive = activePath !== null && normalizePathForComparison(workspace.path) === activePath;
+    const marker = isActive ? "*" : " ";
+    console.log(`  ${marker} ${index + 1}. ${workspace.name}`);
+    console.log(`     ${workspace.path}`);
+    console.log(`     ${DIM}Last used: ${workspace.lastUsedAt}${RESET}`);
+  }
+  console.log();
+}
+
+async function openClaudeInWorkspace(workspace: WorkspaceEntry) {
+  if (!commandExists("claude")) {
+    throw new Error("Claude Code is not installed or not on PATH.");
+  }
+
+  blue(`Opening ${workspace.name} workspace`);
+  console.log(`  ${DIM}${workspace.path}${RESET}`);
+  console.log();
+
+  await new Promise<void>((resolveLaunch, rejectLaunch) => {
+    const child = spawn("claude", [], {
+      cwd: workspace.path,
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        SHOWPANE_APP_PATH: workspace.path,
+        SHOWPANE_TOOLCHAIN_DIR: CURRENT_TOOLCHAIN_LINK,
+      },
+    });
+
+    child.on("error", rejectLaunch);
+    child.on("close", (code) => {
+      process.exit(code ?? 0);
     });
   });
 }
@@ -955,6 +1369,7 @@ async function createProject(args: string[]) {
   }
 
   printBanner();
+  ensureShowpaneShim();
 
   const companyName = options.companyName ?? await ask(`  ${BOLD}What's your company name?${RESET} `);
   if (!companyName) {
@@ -1019,6 +1434,13 @@ async function createProject(args: string[]) {
   let toolchainInfo: ReturnType<typeof syncToolchain>;
   try {
     toolchainInfo = syncToolchain(bundleRoot, showpaneVersion, false);
+    const config = readShowpaneConfig();
+    updateWorkspaceFromConfig(config, projectRoot, {
+      name: dirName,
+      deployMode: "local",
+      orgSlug: "",
+    });
+    writeShowpaneConfig(config);
     writeProjectState(
       projectRoot,
       showpaneVersion,
@@ -1052,7 +1474,7 @@ async function createProject(args: string[]) {
     );
   }
 
-  printCreateSuccessCard(projectRoot, dirName, serverStart.url);
+  printCreateSuccessCard(projectRoot, serverStart.url);
 
   serverStart.devServer.on("close", (code) => {
     if (code !== 0) {
@@ -1074,6 +1496,7 @@ async function syncCurrentToolchain() {
   const bundleRoot = getLocalBundleRoot(packageRoot);
   const showpaneVersion = getPackageVersion(packageRoot);
 
+  ensureShowpaneShim();
   printBanner();
   maybePrintShowpaneUpdateMessage(showpaneVersion);
   console.log();
@@ -1162,8 +1585,80 @@ async function upgradeProject(args: string[]) {
   }
 }
 
+async function openClaude(args: string[]) {
+  let options: ClaudeCommandOptions;
+  try {
+    options = parseClaudeArgs(args);
+  } catch (errorLike) {
+    printBanner();
+    console.log();
+    error(errorLike instanceof Error ? errorLike.message : String(errorLike));
+    printClaudeUsage();
+    process.exit(1);
+  }
+
+  ensureShowpaneShim();
+  const config = readShowpaneConfig();
+  const workspaces = getWorkspaceEntries(config);
+
+  if (workspaces.length === 0 && !options.project) {
+    blue("No Showpane workspace found. Let's create one first.");
+    console.log();
+    await createProject(args);
+    return;
+  }
+
+  if (workspaces.length > 0 && (options.companyName || options.yes)) {
+    error("`--yes` and `--name` only apply when creating the first workspace.");
+    printClaudeUsage();
+    process.exit(1);
+  }
+
+  let workspace: WorkspaceEntry | undefined;
+  if (options.project) {
+    const matches = resolveWorkspaceSelection(config, options.project);
+    if (matches.length === 0) {
+      error(`Could not find a Showpane workspace matching: ${options.project}`);
+      process.exit(1);
+    }
+    if (matches.length > 1) {
+      error(`Multiple workspaces matched: ${options.project}`);
+      for (const match of matches) {
+        console.error(`    ${match.name} — ${match.path}`);
+      }
+      process.exit(1);
+    }
+    workspace = matches[0];
+  } else if (workspaces.length === 1) {
+    workspace = workspaces[0];
+  } else if (!process.stdout.isTTY) {
+    error("Multiple Showpane workspaces found. Use `showpane claude --project <name-or-path>`.");
+    process.exit(1);
+  } else {
+    workspace = await promptWorkspaceSelection(workspaces);
+  }
+
+  const workspaceRoot = findWorkspaceRoot(workspace.path) ?? resolve(workspace.path);
+  const selectedWorkspace = defaultWorkspaceEntry(workspaceRoot, {
+    name: workspace.name || basename(workspaceRoot),
+    deployMode: workspace.deployMode || "local",
+    orgSlug: workspace.orgSlug || "",
+  });
+  upsertWorkspace(config, selectedWorkspace, true);
+  writeShowpaneConfig(config);
+
+  try {
+    await openClaudeInWorkspace(selectedWorkspace);
+  } catch (errorLike) {
+    error(errorLike instanceof Error ? errorLike.message : String(errorLike));
+    console.error(`Hint: Install Claude Code first, or use ${getResumeCommand()} later.`);
+    process.exit(1);
+  }
+}
+
 async function login() {
   printBanner();
+  ensureShowpaneShim();
 
   blue("Authenticating with Showpane...");
   console.log();
@@ -1203,27 +1698,27 @@ async function login() {
     const data = await pollRes.json();
     if (data.status !== "approved") continue;
 
-    const configDir = join(homedir(), ".showpane");
-    mkdirSync(configDir, { recursive: true });
+    const config = readShowpaneConfig();
+    config.accessToken = data.accessToken;
+    config.accessTokenExpiresAt = data.tokenExpiresAt;
+    config.orgSlug = data.orgSlug;
+    config.portalUrl = data.portalUrl;
+    config.vercelProjectId = data.vercelProjectId;
 
-    const configPath = join(configDir, "config.json");
-    writeFileSync(
-      configPath,
-      JSON.stringify(
-        {
-          accessToken: data.accessToken,
-          accessTokenExpiresAt: data.tokenExpiresAt,
-          orgSlug: data.orgSlug,
-          portalUrl: data.portalUrl,
-          vercelProjectId: data.vercelProjectId,
-          app_path: process.cwd(),
-          deploy_mode: "cloud",
-        },
-        null,
-        2
-      )
-    );
-    chmodSync(configPath, 0o600);
+    const currentWorkspace = findWorkspaceRoot(process.cwd())
+      ?? (config.app_path ? findWorkspaceRoot(config.app_path) ?? resolve(config.app_path) : null);
+
+    if (currentWorkspace) {
+      updateWorkspaceFromConfig(config, currentWorkspace, {
+        name: basename(currentWorkspace),
+        deployMode: "cloud",
+        orgSlug: data.orgSlug,
+      });
+    } else {
+      config.deploy_mode = "cloud";
+    }
+
+    writeShowpaneConfig(config);
 
     console.log();
     green(`Authenticated! Connected to ${BOLD}${data.orgSlug}${RESET}`);
@@ -1248,6 +1743,18 @@ if (command === "login") {
     error(String(err));
     process.exit(1);
   });
+} else if (command === "claude") {
+  openClaude(process.argv.slice(3)).catch((err) => {
+    error(String(err));
+    process.exit(1);
+  });
+} else if (command === "projects") {
+  try {
+    printWorkspaceList(readShowpaneConfig());
+  } catch (err) {
+    error(String(err));
+    process.exit(1);
+  }
 } else if (command === "sync") {
   syncCurrentToolchain().catch((err) => {
     error(String(err));

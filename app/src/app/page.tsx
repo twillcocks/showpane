@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { getRuntimeState, isRuntimeSnapshotMode } from "@/lib/runtime-state";
 import Link from "next/link";
 import { Presentation, Briefcase, UserPlus } from "lucide-react";
+import os from "node:os";
+import path from "node:path";
 
 const templates = [
   {
@@ -23,6 +25,10 @@ const templates = [
 
 export default async function Home() {
   let portalCount = 0;
+  const showpaneBinDir = path.join(os.homedir(), ".showpane", "bin");
+  const resumeCommand = (process.env.PATH ?? "").split(path.delimiter).includes(showpaneBinDir)
+    ? "showpane claude"
+    : "npx showpane claude";
   try {
     if (isRuntimeSnapshotMode()) {
       const state = await getRuntimeState();
@@ -77,10 +83,10 @@ export default async function Home() {
                 </span>
                 <div className="min-w-0">
                   <p className="text-gray-900 font-medium mb-2">
-                    Open your terminal in this directory
+                    In a terminal, reopen your Showpane workspace
                   </p>
                   <code className="block text-sm text-gray-300 font-mono bg-[#111827] px-3 py-2 rounded overflow-x-auto">
-                    cd app
+                    {resumeCommand}
                   </code>
                 </div>
               </div>
@@ -93,10 +99,10 @@ export default async function Home() {
                 </span>
                 <div className="min-w-0">
                   <p className="text-gray-900 font-medium mb-2">
-                    Launch Claude Code
+                    Use the fast path slash command
                   </p>
                   <code className="block text-sm text-gray-300 font-mono bg-[#111827] px-3 py-2 rounded">
-                    claude
+                    /portal create acme-health
                   </code>
                 </div>
               </div>
@@ -109,7 +115,7 @@ export default async function Home() {
                 </span>
                 <div className="min-w-0">
                   <p className="text-gray-900 font-medium mb-2">
-                    Tell it what to create
+                    Or tell it what to create
                   </p>
                   <code className="block text-sm text-gray-300 font-mono bg-[#111827] px-3 py-2 rounded overflow-x-auto">
                     Create a portal for my call with [client name]

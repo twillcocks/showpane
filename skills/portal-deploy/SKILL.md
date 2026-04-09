@@ -110,7 +110,7 @@ Expected: HTTP 200. If Showpane Cloud is unreachable, stop and show the error. T
 Run the standard type check:
 
 ```bash
-cd "$APP_PATH" && npx tsc --noEmit 2>&1
+cd "$APP_PATH" && npx tsc --noEmit
 ```
 
 If type errors are found, display them and stop. Offer to fix simple issues (missing imports, typos).
@@ -167,12 +167,9 @@ Export the current local portal-runtime state so Showpane Cloud can sync credent
 ```bash
 RUNTIME_DATA_PATH="/tmp/showpane-runtime-${CLOUD_ORG_SLUG:-portal}.json"
 rm -f "$RUNTIME_DATA_PATH"
-if [ -n "$ORG_SLUG" ]; then
-  cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-runtime-state.ts" --org-slug "$ORG_SLUG" > "$RUNTIME_DATA_PATH"
-else
-  cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-runtime-state.ts" > "$RUNTIME_DATA_PATH"
-fi
-test -f "$RUNTIME_DATA_PATH" || { echo "ERROR: Runtime payload was not created"; exit 1; }
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-runtime-state.ts" > "$RUNTIME_DATA_PATH" \
+  || { echo "ERROR: Runtime payload export failed"; exit 1; }
+test -s "$RUNTIME_DATA_PATH" || { echo "ERROR: Runtime payload was not created"; exit 1; }
 echo "Runtime payload ready: $RUNTIME_DATA_PATH"
 ```
 
@@ -183,12 +180,9 @@ Export uploaded document metadata and checksums so Showpane Cloud can determine 
 ```bash
 FILE_MANIFEST_PATH="/tmp/showpane-files-${CLOUD_ORG_SLUG:-portal}.json"
 rm -f "$FILE_MANIFEST_PATH"
-if [ -n "$ORG_SLUG" ]; then
-  cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-file-manifest.ts" --org-slug "$ORG_SLUG" > "$FILE_MANIFEST_PATH"
-else
-  cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-file-manifest.ts" > "$FILE_MANIFEST_PATH"
-fi
-test -f "$FILE_MANIFEST_PATH" || { echo "ERROR: File manifest was not created"; exit 1; }
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-file-manifest.ts" > "$FILE_MANIFEST_PATH" \
+  || { echo "ERROR: File manifest export failed"; exit 1; }
+test -s "$FILE_MANIFEST_PATH" || { echo "ERROR: File manifest was not created"; exit 1; }
 echo "File manifest ready: $FILE_MANIFEST_PATH"
 ```
 
@@ -283,10 +277,15 @@ if [ -z "$DEPLOY_ID" ] || [ -z "$ARTIFACT_UPLOAD_URL" ]; then
   exit 1
 fi
 
-curl -s -X PUT "$ARTIFACT_UPLOAD_URL" \
+UPLOAD_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$ARTIFACT_UPLOAD_URL" \
   -H "Content-Type: application/zip" \
   --data-binary @"$ARTIFACT_PATH" \
-  >/dev/null
+)
+
+if [ "$UPLOAD_STATUS" != "200" ]; then
+  echo "ERROR: Artifact upload failed with HTTP $UPLOAD_STATUS"
+  exit 1
+fi
 ```
 
 ### Cloud Step 9: Finalize the deployment
@@ -526,6 +525,7 @@ echo '{"skill":"portal-deploy","event":"completed","ts":"'$(date -u +%Y-%m-%dT%H
 - If any pre-flight check fails (type errors, missing deploy config), stop and explain
 - Show the full deployment summary with portal count, migration status, and health
 - If this is the first deploy, suggest running `/portal credentials` for all portals before deploying so clients can actually log in
+- For Cloud deploys: use the local workspace's current SQLite org for runtime exports, not the cloud org slug from config
 - For Cloud deploys: build locally, upload the artifact to Showpane Cloud, and let the control plane publish it
 - For Cloud deploys: upload the artifact directly to storage using the presigned URL, not through the deployment function body
 - For Cloud deploys: always wait for the deployment to reach `live` before declaring success

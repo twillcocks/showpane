@@ -16,7 +16,7 @@ vi.mock("@/lib/db", () => ({
 import { resolveDefaultOrganizationId } from "@/lib/client-portals";
 import { prisma } from "@/lib/db";
 
-const mockedPrisma = vi.mocked(prisma);
+const mockedFindFirst = vi.mocked(prisma.organization.findFirst);
 
 describe("resolveDefaultOrganizationId", () => {
   beforeEach(() => {
@@ -24,21 +24,21 @@ describe("resolveDefaultOrganizationId", () => {
   });
 
   it("falls back to first org in DB", async () => {
-    mockedPrisma.organization.findFirst.mockResolvedValue({
+    mockedFindFirst.mockResolvedValue({
       id: "local-org-1",
     } as never);
 
     const result = await resolveDefaultOrganizationId();
 
     expect(result).toBe("local-org-1");
-    expect(mockedPrisma.organization.findFirst).toHaveBeenCalledWith({
+    expect(mockedFindFirst).toHaveBeenCalledWith({
       select: { id: true },
       orderBy: { createdAt: "asc" },
     });
   });
 
   it("returns null when no orgs exist in DB", async () => {
-    mockedPrisma.organization.findFirst.mockResolvedValue(null);
+    mockedFindFirst.mockResolvedValue(null);
 
     const result = await resolveDefaultOrganizationId();
 

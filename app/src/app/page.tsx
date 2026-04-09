@@ -16,9 +16,9 @@ const PROMPT_EXAMPLES = [
 export default async function Home() {
   let portalCount = 0;
   const showpaneBinDir = path.join(os.homedir(), ".showpane", "bin");
-  const resumeCommand = (process.env.PATH ?? "").split(path.delimiter).includes(showpaneBinDir)
-    ? "showpane claude"
-    : "npx showpane claude";
+  const prefersCanonicalCommand = (process.env.PATH ?? "").split(path.delimiter).includes(showpaneBinDir);
+  const primaryCommand = "showpane claude";
+  const fallbackCommand = "npx showpane claude";
   try {
     if (isRuntimeSnapshotMode()) {
       const state = await getRuntimeState();
@@ -46,7 +46,7 @@ export default async function Home() {
             Your Showpane workspace is ready
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-white/82 sm:text-lg">
-            Open Claude in your Showpane workspace and create your first client portal.
+            Open a new terminal window, run Showpane with Claude, and create your first client portal.
           </p>
         </div>
       </div>
@@ -61,15 +61,21 @@ export default async function Home() {
                   Start with Claude
                 </div>
                 <p className="mt-3 text-sm leading-6 text-white/72">
-                  This opens Claude in the right Showpane workspace so you can start creating portals immediately.
+                  Open a new terminal window and run this command there. Your current terminal is running the local app, so this command belongs in a fresh one.
                 </p>
+                {!prefersCanonicalCommand && (
+                  <p className="mt-2 text-xs leading-5 text-white/60">
+                    If <code className="font-mono text-white">{primaryCommand}</code> isn&apos;t available in your shell yet, use{" "}
+                    <code className="font-mono text-white">{fallbackCommand}</code>.
+                  </p>
+                )}
               </div>
-              <CopyButton text={resumeCommand} invert />
+              <CopyButton text={primaryCommand} invert />
             </div>
 
             <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
               <code className="block overflow-x-auto font-mono text-sm text-white sm:text-[15px]">
-                {resumeCommand}
+                {primaryCommand}
               </code>
             </div>
           </section>

@@ -1069,8 +1069,10 @@ function printCreateSuccessCard(projectRoot: string, url: string) {
   console.log(`  ${BOLD}App:${RESET}     ${url}`);
   console.log(`  ${BOLD}Demo:${RESET}    example / demo-only-password`);
   console.log();
-  console.log(`  ${BOLD}Next:${RESET}`);
+  console.log(`  ${BOLD}Next (in a new terminal window):${RESET}`);
   console.log(`    ${DIM}${resumeCommand}${RESET}`);
+  console.log();
+  console.log(`  ${DIM}Your current terminal is running the local app logs, so open a fresh terminal before you run that command.${RESET}`);
   console.log();
   console.log(`  ${BOLD}Try:${RESET}`);
   console.log(`    ${DIM}Create a portal for my call with Acme Health${RESET}`);
@@ -1390,20 +1392,20 @@ async function createProject(args: string[]) {
   blue(`Setting up ${BOLD}${companyName}${RESET} portal as ${DIM}${dirName}/${RESET}`);
   console.log();
 
-  stepStart("Create project");
+  stepStartForCreate("Create project", options);
   try {
     copyScaffoldFiles(join(bundleRoot, "scaffold"), projectRoot, scaffoldManifest);
-    stepSuccess("Project created");
+    stepSuccessForCreate("Project created");
   } catch (errorLike) {
-    stepFailure("Create project", errorLike);
+    stepFailureForCreate("Create project", errorLike);
   }
 
-  stepStart("Install dependencies");
+  stepStartForCreate("Install dependencies", options);
   try {
     installDependencies(projectRoot, options.verbose);
-    stepSuccess("Dependencies installed");
+    stepSuccessForCreate("Dependencies installed");
   } catch (errorLike) {
-    stepFailure(
+    stepFailureForCreate(
       "Install dependencies",
       errorLike,
       "Check your Node.js version and network connection, then try again."
@@ -1417,20 +1419,20 @@ async function createProject(args: string[]) {
     `DATABASE_URL="${databaseUrl}"\nAUTH_SECRET="${authSecret}"\n`
   );
 
-  stepStart("Configure database");
+  stepStartForCreate("Configure database", options);
   try {
     generateLocalDatabase(projectRoot, databaseUrl, options.verbose);
     seedProject(projectRoot, databaseUrl, options.verbose);
-    stepSuccess("Database configured");
+    stepSuccessForCreate("Database configured");
   } catch (errorLike) {
-    stepFailure(
+    stepFailureForCreate(
       "Configure database",
       errorLike,
       "Check Prisma setup and the generated .env file, then retry the install."
     );
   }
 
-  stepStart("Install Claude skills");
+  stepStartForCreate("Install Claude skills", options);
   let toolchainInfo: ReturnType<typeof syncToolchain>;
   try {
     toolchainInfo = syncToolchain(bundleRoot, showpaneVersion, false);
@@ -1448,16 +1450,16 @@ async function createProject(args: string[]) {
       toolchainInfo.toolchainVersion
     );
     tryInitializeGitRepo(projectRoot, false);
-    stepSuccess("Claude skills installed");
+    stepSuccessForCreate("Claude skills installed");
   } catch (errorLike) {
-    stepFailure(
+    stepFailureForCreate(
       "Install Claude skills",
       errorLike,
       "Check permissions for ~/.showpane and ~/.claude/skills, then try again."
     );
   }
 
-  stepStart("Start app");
+  stepStartForCreate("Start app", options);
   let serverStart: DevServerStart;
   try {
     serverStart = await startDevServer(
@@ -1467,7 +1469,7 @@ async function createProject(args: string[]) {
       options.verbose,
     );
   } catch (errorLike) {
-    stepFailure(
+    stepFailureForCreate(
       "Start app",
       errorLike,
       `Run ${BOLD}cd ${dirName} && npm run dev${RESET} for more detail.`

@@ -263,7 +263,15 @@ async function main() {
   if (!generatedPrismaClientExists) {
     throw new Error("Smoke test failed: generated Prisma client output is missing.");
   }
-  for (const marker of ["Showpane is ready", "Project:", "App:", "Demo:", "Next:", "Try:"]) {
+  for (const marker of [
+    "Showpane is ready",
+    "Project:",
+    "App:",
+    "Demo:",
+    "Next (in a new terminal window):",
+    "Your current terminal is running the local app logs, so open a fresh terminal before you run that command.",
+    "Try:",
+  ]) {
     if (!output.includes(marker)) {
       throw new Error(`Smoke test failed: success card marker missing: ${marker}`);
     }

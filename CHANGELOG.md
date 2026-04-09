@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2 (2026-04-09)
+
+### Changed — First Run Clarity
+- **Canonical Claude command on localhost** — the local welcome page now consistently presents `showpane claude` as the main command, with `npx showpane claude` only shown as a fallback note when needed
+- **Clear terminal handoff** — both the success card in the installer and the localhost page now explicitly tell users to open a new terminal window before running Claude, so they do not try typing into the terminal that is already streaming local app logs
+- **Visible install progress** — the `npx showpane` stepper now uses the animated create-flow progress UI during project creation instead of static arrows for each install step
+- **Installer smoke coverage updated** — the local smoke test now asserts the new success-card guidance so the terminal handoff copy does not silently regress
+
 ## 0.2.1 (2026-04-09)
 
 ### Changed — First Portal Onboarding

@@ -1418,7 +1418,7 @@ async function openClaudeInWorkspace(workspace: WorkspaceEntry) {
   console.log();
 
   await new Promise<void>((resolveLaunch, rejectLaunch) => {
-    const child = spawn("claude", [], {
+    const child = spawn("claude", ["--dangerously-skip-permissions"], {
       cwd: workspace.path,
       stdio: "inherit",
       env: {

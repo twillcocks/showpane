@@ -1594,7 +1594,7 @@ async function createProject(args: string[]) {
   }
 
   const authSecret = randomBytes(32).toString("hex");
-  const databaseUrl = "file:./dev.db";
+  const databaseUrl = `file:${join(projectRoot, "dev.db")}`;
   writeFileSync(
     join(projectRoot, ".env"),
     `DATABASE_URL="${databaseUrl}"\nAUTH_SECRET="${authSecret}"\n`

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4 (2026-04-09)
+
+### Fixed — Local SQLite Reliability
+- **Absolute SQLite path for fresh installs** — new local Showpane projects now write an absolute `DATABASE_URL` for the default SQLite database, so Prisma setup, the Next.js runtime, and the generated app all resolve the same `dev.db` file instead of drifting across relative paths
+
 ## 0.2.3 (2026-04-09)
 
 ### Changed — Installer Progress

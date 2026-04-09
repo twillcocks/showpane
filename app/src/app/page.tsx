@@ -1,26 +1,16 @@
+import { CopyButton } from "@/components/copy-button";
+import { resolveDefaultOrganizationId } from "@/lib/client-portals";
 import { prisma } from "@/lib/db";
 import { getRuntimeState, isRuntimeSnapshotMode } from "@/lib/runtime-state";
+import { ArrowUpRight, BookOpen, Command, MessageSquareQuote } from "lucide-react";
 import Link from "next/link";
-import { Presentation, Briefcase, UserPlus } from "lucide-react";
 import os from "node:os";
 import path from "node:path";
 
-const templates = [
-  {
-    name: "Sales Follow-up",
-    description: "Meeting notes, next steps, documents",
-    icon: Presentation,
-  },
-  {
-    name: "Consulting",
-    description: "Project overview, deliverables, timeline",
-    icon: Briefcase,
-  },
-  {
-    name: "Onboarding",
-    description: "Welcome, setup steps, resources",
-    icon: UserPlus,
-  },
+const GUIDE_URL = "https://app.showpane.com/docs/first-portal";
+const PROMPT_EXAMPLES = [
+  "Create a portal for my client Acme based on my call transcript, which is here: [paste it]",
+  "Create a portal for my client Acme based on my call from earlier today. Use the Granola MCP to grab the transcript.",
 ];
 
 export default async function Home() {
@@ -34,144 +24,132 @@ export default async function Home() {
       const state = await getRuntimeState();
       portalCount = state?.portals.length ?? 0;
     } else {
-      portalCount = await prisma.clientPortal.count();
+      const organizationId = await resolveDefaultOrganizationId();
+      if (organizationId) {
+        portalCount = await prisma.clientPortal.count({
+          where: { organizationId },
+        });
+      }
     }
   } catch {
     // DB not ready yet — show welcome page with 0 portals
   }
 
   return (
-    <main className="min-h-screen flex flex-col">
-      {/* Hero zone */}
-      <div className="bg-gradient-to-b from-[#2C5278] to-[#5A8BB5] px-4 py-16 md:py-24 text-center relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div className="relative">
-          <h1 className="sr-only">SHOWPANE</h1>
-          <div
-            role="img"
-            aria-label="SHOWPANE"
-            className="font-mono text-white text-[0.45rem] leading-[1.1] sm:text-[0.55rem] md:text-xs whitespace-pre select-none mx-auto w-fit"
-          >
-{`███████╗██╗  ██╗ ██████╗ ██╗    ██╗██████╗  █████╗ ███╗   ██╗███████╗
-██╔════╝██║  ██║██╔═══██╗██║    ██║██╔══██╗██╔══██╗████╗  ██║██╔════╝
-███████╗███████║██║   ██║██║ █╗ ██║██████╔╝███████║██╔██╗ ██║█████╗
-╚════██║██╔══██║██║   ██║██║███╗██║██╔═══╝ ██╔══██║██║╚██╗██║██╔══╝
-███████║██║  ██║╚██████╔╝╚███╔███╔╝██║     ██║  ██║██║ ╚████║███████╗
-╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝`}
+    <main className="min-h-screen bg-[#f6f1e8] text-slate-900">
+      <div className="bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.24),_transparent_48%),linear-gradient(180deg,_#214668_0%,_#3d6f9c_100%)] px-4 py-16 text-white sm:py-20">
+        <div className="mx-auto max-w-3xl">
+          <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
+            Local app running
           </div>
-          <p className="mt-6 text-white/90 text-lg">
-            Create professional client portals with Claude Code.
+          <h1 className="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">
+            Your Showpane workspace is ready
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-white/82 sm:text-lg">
+            Open Claude in your Showpane workspace and create your first client portal.
           </p>
         </div>
       </div>
 
-      {/* Action zone */}
-      <div className="flex-1 bg-[#FDFBF7] px-4 py-12 md:py-16">
-        <div className="max-w-lg mx-auto">
-          {/* Steps */}
-          <ol className="space-y-4">
-            <li className="border border-gray-200 rounded-lg p-5 bg-white">
-              <div className="flex items-start gap-4">
-                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-medium flex items-center justify-center">
-                  1
-                </span>
-                <div className="min-w-0">
-                  <p className="text-gray-900 font-medium mb-2">
-                    In a terminal, reopen your Showpane workspace
-                  </p>
-                  <code className="block text-sm text-gray-300 font-mono bg-[#111827] px-3 py-2 rounded overflow-x-auto">
-                    {resumeCommand}
-                  </code>
+      <div className="px-4 py-10 sm:py-12">
+        <div className="mx-auto max-w-3xl space-y-5">
+          <section className="rounded-[28px] border border-slate-200 bg-slate-950 p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.16)] sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-white/80">
+                  <Command className="h-4 w-4" />
+                  Start with Claude
                 </div>
+                <p className="mt-3 text-sm leading-6 text-white/72">
+                  This opens Claude in the right Showpane workspace so you can start creating portals immediately.
+                </p>
               </div>
-            </li>
+              <CopyButton text={resumeCommand} invert />
+            </div>
 
-            <li className="border border-gray-200 rounded-lg p-5 bg-white">
-              <div className="flex items-start gap-4">
-                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-medium flex items-center justify-center">
-                  2
-                </span>
-                <div className="min-w-0">
-                  <p className="text-gray-900 font-medium mb-2">
-                    Use the fast path slash command
-                  </p>
-                  <code className="block text-sm text-gray-300 font-mono bg-[#111827] px-3 py-2 rounded">
-                    /portal create acme-health
-                  </code>
-                </div>
-              </div>
-            </li>
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <code className="block overflow-x-auto font-mono text-sm text-white sm:text-[15px]">
+                {resumeCommand}
+              </code>
+            </div>
+          </section>
 
-            <li className="border border-gray-200 rounded-lg p-5 bg-white">
-              <div className="flex items-start gap-4">
-                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-medium flex items-center justify-center">
-                  3
-                </span>
-                <div className="min-w-0">
-                  <p className="text-gray-900 font-medium mb-2">
-                    Or tell it what to create
-                  </p>
-                  <code className="block text-sm text-gray-300 font-mono bg-[#111827] px-3 py-2 rounded overflow-x-auto">
-                    Create a portal for my call with [client name]
-                  </code>
-                </div>
-              </div>
-            </li>
-          </ol>
+          <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_70px_rgba(15,23,42,0.07)] sm:p-7">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <MessageSquareQuote className="h-4 w-4" />
+              What to say to Claude
+            </div>
 
-          <p className="mt-4 text-xs text-gray-400 text-center">
-            Don&apos;t have Claude Code?{" "}
-            <a
-              href="https://claude.ai/code"
-              className="text-blue-600 hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Install it here
-            </a>
-          </p>
-
-          {/* Template previews */}
-          <div className="mt-12">
-            <p className="text-sm font-medium text-gray-500 text-center mb-4">
-              Claude Code generates portals from templates
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {templates.map((t) => (
+            <div className="mt-5 space-y-3">
+              {PROMPT_EXAMPLES.map((example, index) => (
                 <div
-                  key={t.name}
-                  className="border border-gray-200 rounded-lg p-4 bg-white text-center"
+                  key={example}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
                 >
-                  <t.icon className="h-5 w-5 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-gray-900">{t.name}</p>
-                  <p className="text-xs text-gray-500 mt-1">{t.description}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Example {index + 1}
+                    </p>
+                    <CopyButton text={example} />
+                  </div>
+                  <p className="mt-3 whitespace-pre-wrap pr-2 font-mono text-sm leading-6 text-slate-700">
+                    {example}
+                  </p>
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section className="rounded-[32px] border border-[#b8d2ee] bg-[linear-gradient(135deg,_#f8fcff_0%,_#d8ebfb_55%,_#bed8f1_100%)] p-6 shadow-[0_24px_90px_rgba(61,111,156,0.18)] sm:p-8">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+              <div className="max-w-xl">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[#214668]">
+                  <BookOpen className="h-4 w-4" />
+                  Need help creating your first portal?
+                </div>
+                <p className="mt-3 text-base leading-7 text-[#284f74]">
+                  Follow the step-by-step guide with examples, best practices, and a walkthrough video.
+                </p>
+              </div>
+              <a
+                href={GUIDE_URL}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#214668] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#18344d]"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open Creating Your First Portal
+                <ArrowUpRight className="h-4 w-4" />
+              </a>
+            </div>
+          </section>
+
+          <div className="space-y-3 pt-2 text-center">
+            <p className="text-xs text-slate-500">
+              Need Claude Code first?{" "}
+              <a
+                href="https://claude.ai/code"
+                className="font-medium text-[#214668] underline decoration-slate-300 underline-offset-4 hover:decoration-[#214668]"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Install it here
+              </a>
+            </p>
+
+            <div className="space-y-1 text-xs text-slate-400">
+              {portalCount > 0 && (
+                <p>
+                  You have {portalCount} portal{portalCount !== 1 ? "s" : ""}.{" "}
+                  <Link href="/client" className="text-[#214668] hover:underline">
+                    Go to login
+                  </Link>
+                </p>
+              )}
+              <p>Powered by Claude Code</p>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Footer zone */}
-      <footer className="bg-[#FDFBF7] px-4 pb-8 text-center space-y-2">
-        {portalCount > 0 && (
-          <p className="text-sm text-gray-500">
-            You have {portalCount} portal{portalCount !== 1 ? "s" : ""}.{" "}
-            <Link href="/client" className="text-blue-600 hover:underline">
-              Go to login
-            </Link>
-          </p>
-        )}
-        <p className="text-xs text-gray-400">
-          Powered by Claude Code
-        </p>
-      </footer>
     </main>
   );
 }

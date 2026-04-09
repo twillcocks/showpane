@@ -71,6 +71,24 @@ mention them unless they directly affect the current task.
 
 ## Steps
 
+### Step 0: Check first-portal guide eligibility
+
+Before asking for the slug or generating anything, determine the existing portal count
+for the active organization:
+
+```bash
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/list-portals.ts" --org-slug "$ORG_SLUG"
+```
+
+The script returns JSON with `total` and `orgId` for the active org. Reuse that
+`orgId` for the slug validation and portal creation commands below.
+
+- If `total` is `0`, `1`, or `2`, say this line exactly once:
+  `If helpful, the first-portal guide has examples and best practices: https://app.showpane.com/docs/first-portal`
+- If `total` is `3` or higher, do not mention the guide.
+- Mention it once per invocation only. Do not repeat it later in the same flow.
+- Use the org-scoped portal count directly. Do not use learnings or timeline heuristics.
+
 ### Step 1: Determine the portal slug
 
 If the user provided a slug (e.g., `/portal create acme-health`), use it. Otherwise, infer from context — the company name mentioned in conversation, a meeting transcript, or ask the user directly.

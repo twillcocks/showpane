@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 (2026-04-09)
+
+### Changed — First Portal Onboarding
+- **Local welcome page refresh** — localhost onboarding now focuses on one Claude start command, two strong first-portal prompt examples, and a direct guide CTA instead of a numbered setup stack
+- **Canonical first-portal guide** — public docs now center on `app.showpane.com/docs/first-portal` with transcript patterns, best practices, common mistakes, and a walkthrough slot
+- **Early portal guidance nudge** — `/portal create` now points first-time users to the guide for the first three org-scoped portal creations, then stays quiet after that
+
 ## 0.2.0 (2026-04-08)
 
 ### Added — Showpane Cloud Platform

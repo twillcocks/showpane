@@ -27,7 +27,12 @@ async function main() {
         slug: "example",
       },
     },
-    update: {},
+    update: {
+      companyName: "Acme Health",
+      username: "example",
+      passwordHash,
+      lastUpdated: "2 April 2026",
+    },
     create: {
       organizationId: org.id,
       slug: "example",

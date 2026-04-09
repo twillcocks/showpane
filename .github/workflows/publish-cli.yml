@@ -18,6 +18,17 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
+      - name: Verify tag matches package version
+        working-directory: packages/cli
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#cli-v}"
+          PACKAGE_VERSION="$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")"
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match packages/cli/package.json ($PACKAGE_VERSION)."
+            exit 1
+          fi
+
       - name: Install dependencies
         working-directory: packages/cli
         run: npm ci

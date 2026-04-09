@@ -21,3 +21,11 @@ This is auth only — org creation and billing happen in the Showpane Cloud web 
 
 - Node.js 20+
 - Claude Code (for portal creation)
+
+## Local Smoke Test
+
+```bash
+npm run smoke:test-local
+```
+
+Builds the local CLI, packs it, and runs the full `npx` scaffold flow in a temp directory with a deliberately conflicting parent `DATABASE_URL`.

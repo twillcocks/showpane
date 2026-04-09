@@ -97,8 +97,12 @@ function findFreePort(startPort: number): Promise<number> {
 
 // ── Shell exec helper ─────────────────────────────────────────────────────────
 
-function run(cmd: string, cwd?: string) {
-  execSync(cmd, { cwd, stdio: "inherit" });
+function run(cmd: string, cwd?: string, env?: NodeJS.ProcessEnv) {
+  execSync(cmd, {
+    cwd,
+    stdio: "inherit",
+    env: env ? { ...process.env, ...env } : process.env,
+  });
 }
 
 // ── Open browser (cross-platform) ────────────────────────────────────────────
@@ -166,13 +170,16 @@ async function main() {
 
   // 4. Create .env
   const authSecret = randomBytes(32).toString("hex");
-  const envContent = `DATABASE_URL="file:./dev.db"\nAUTH_SECRET="${authSecret}"\n`;
+  const databaseUrl = "file:./dev.db";
+  const envContent = `DATABASE_URL="${databaseUrl}"\nAUTH_SECRET="${authSecret}"\n`;
   writeFileSync(resolve(appDir, ".env"), envContent);
   green("Environment configured");
 
   // 5. Run Prisma migrations
   try {
-    run("npx prisma db push --schema prisma/schema.local.prisma", appDir);
+    run("npx prisma db push --schema prisma/schema.local.prisma", appDir, {
+      DATABASE_URL: databaseUrl,
+    });
     green("Database ready");
   } catch {
     error("Failed to set up the database. Check Prisma schema and try again.");
@@ -181,7 +188,9 @@ async function main() {
 
   // 5b. Seed example portal (non-fatal)
   try {
-    run("npx tsx prisma/seed.ts", appDir);
+    run("npx tsx prisma/seed.ts", appDir, {
+      DATABASE_URL: databaseUrl,
+    });
     green("Example portal seeded");
   } catch {
     blue("Skipped example portal (seed failed — not a problem)");
@@ -266,7 +275,7 @@ async function main() {
   const devServer = spawn("npm", ["run", "dev"], {
     cwd: appDir,
     stdio: "inherit",
-    env: { ...process.env, PORT: String(port) },
+    env: { ...process.env, PORT: String(port), DATABASE_URL: databaseUrl },
   });
 
   // Give the server a moment to start, then open the browser

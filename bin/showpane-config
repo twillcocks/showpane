@@ -5,54 +5,133 @@ CONFIG_DIR="${HOME}/.showpane"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 
 usage() {
-  echo "Usage: showpane-config <get|set> <key> [value]"
-  echo ""
-  echo "Commands:"
-  echo "  get <key>          Read a value from config"
-  echo "  set <key> <value>  Write a value to config"
-  echo ""
-  echo "Config file: ${CONFIG_FILE}"
+  cat <<'EOF'
+Usage: showpane-config <get|set|unset|has|path> <key> [value]
+
+Commands:
+  get <key>           Read a value from config
+  set <key> <value>   Write a scalar value to config
+  unset <key>         Remove a key from config
+  has <key>           Exit 0 if key exists, 1 otherwise
+  path                Print the config file path
+
+Notes:
+  - Keys support dot notation, e.g. "cloud.portalUrl"
+  - Values "true", "false", "null", and numeric literals are parsed as JSON scalars
+  - Everything else is stored as a string
+EOF
   exit 1
 }
 
 ensure_config() {
-  if [ ! -d "$CONFIG_DIR" ]; then
-    mkdir -p "$CONFIG_DIR"
-  fi
+  mkdir -p "$CONFIG_DIR"
   if [ ! -f "$CONFIG_FILE" ]; then
     echo '{}' > "$CONFIG_FILE"
     chmod 600 "$CONFIG_FILE"
   fi
 }
 
+py_get='
+import json, sys
+path, key = sys.argv[1], sys.argv[2]
+with open(path) as fh:
+    data = json.load(fh)
+node = data
+for part in key.split("."):
+    if not isinstance(node, dict) or part not in node:
+        raise SystemExit(1)
+    node = node[part]
+if isinstance(node, bool):
+    print("true" if node else "false")
+elif node is None:
+    print("null")
+elif isinstance(node, (dict, list)):
+    print(json.dumps(node))
+else:
+    print(node)
+'
+
+py_has='
+import json, sys
+path, key = sys.argv[1], sys.argv[2]
+with open(path) as fh:
+    data = json.load(fh)
+node = data
+for part in key.split("."):
+    if not isinstance(node, dict) or part not in node:
+        raise SystemExit(1)
+    node = node[part]
+raise SystemExit(0)
+'
+
+py_set='
+import json, sys
+path, key, raw = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path) as fh:
+    data = json.load(fh)
+try:
+    value = json.loads(raw)
+except Exception:
+    value = raw
+node = data
+parts = key.split(".")
+for part in parts[:-1]:
+    current = node.get(part)
+    if not isinstance(current, dict):
+        current = {}
+        node[part] = current
+    node = current
+node[parts[-1]] = value
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+'
+
+py_unset='
+import json, sys
+path, key = sys.argv[1], sys.argv[2]
+with open(path) as fh:
+    data = json.load(fh)
+node = data
+parts = key.split(".")
+for part in parts[:-1]:
+    current = node.get(part)
+    if not isinstance(current, dict):
+        raise SystemExit(1)
+    node = current
+if parts[-1] not in node:
+    raise SystemExit(1)
+del node[parts[-1]]
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+'
+
 case "${1:-}" in
   get)
     [ -z "${2:-}" ] && usage
     ensure_config
-    # Use python3 for portable JSON parsing (available on macOS + Linux)
-    python3 -c "
-import json, sys
-with open('$CONFIG_FILE') as f:
-    data = json.load(f)
-key = '$2'
-if key in data:
-    print(data[key])
-else:
-    sys.exit(1)
-"
+    python3 -c "$py_get" "$CONFIG_FILE" "$2"
     ;;
   set)
     [ -z "${2:-}" ] || [ -z "${3:-}" ] && usage
     ensure_config
-    python3 -c "
-import json
-with open('$CONFIG_FILE') as f:
-    data = json.load(f)
-data['$2'] = '$3'
-with open('$CONFIG_FILE', 'w') as f:
-    json.dump(data, f, indent=2)
-"
+    python3 -c "$py_set" "$CONFIG_FILE" "$2" "$3"
     chmod 600 "$CONFIG_FILE"
+    ;;
+  unset)
+    [ -z "${2:-}" ] && usage
+    ensure_config
+    python3 -c "$py_unset" "$CONFIG_FILE" "$2"
+    chmod 600 "$CONFIG_FILE"
+    ;;
+  has)
+    [ -z "${2:-}" ] && usage
+    ensure_config
+    python3 -c "$py_has" "$CONFIG_FILE" "$2"
+    ;;
+  path)
+    printf '%s\n' "$CONFIG_FILE"
     ;;
   --help|-h)
     usage

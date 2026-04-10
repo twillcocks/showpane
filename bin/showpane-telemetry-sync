@@ -1,0 +1,212 @@
+#!/usr/bin/env node
+
+import fs from "node:fs";
+import http from "node:http";
+import https from "node:https";
+import os from "node:os";
+import path from "node:path";
+
+const SHOWPANE_HOME = path.join(os.homedir(), ".showpane");
+const ANALYTICS_DIR = path.join(SHOWPANE_HOME, "analytics");
+const JSONL_FILE = path.join(ANALYTICS_DIR, "skill-usage.jsonl");
+const CURSOR_FILE = path.join(ANALYTICS_DIR, ".last-sync-line");
+const RATE_FILE = path.join(ANALYTICS_DIR, ".last-sync-time");
+const LOCK_FILE = path.join(ANALYTICS_DIR, ".sync.lock");
+const RATE_LIMIT_MS = 5 * 60 * 1000;
+const MAX_BATCH = 100;
+
+function readJson(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function readConfig() {
+  return readJson(path.join(SHOWPANE_HOME, "config.json")) || {};
+}
+
+function readTelemetryRuntimeConfig() {
+  const envBaseUrl = process.env.SHOWPANE_TELEMETRY_BASE_URL;
+  if (envBaseUrl) {
+    return {
+      baseUrl: envBaseUrl || "https://app.showpane.com",
+      ingestPath: "/api/telemetry/ingest",
+    };
+  }
+
+  return (
+    readJson(path.join(SHOWPANE_HOME, "current", "TELEMETRY_CONFIG.json")) || {
+      baseUrl: "https://app.showpane.com",
+      ingestPath: "/api/telemetry/ingest",
+    }
+  );
+}
+
+function nowMs() {
+  return Date.now();
+}
+
+function shouldRateLimit() {
+  try {
+    const last = Number(fs.readFileSync(RATE_FILE, "utf8").trim());
+    return Number.isFinite(last) && nowMs() - last < RATE_LIMIT_MS;
+  } catch {
+    return false;
+  }
+}
+
+function touchRateFile() {
+  fs.mkdirSync(ANALYTICS_DIR, { recursive: true });
+  fs.writeFileSync(RATE_FILE, `${nowMs()}\n`);
+}
+
+function acquireLock() {
+  fs.mkdirSync(ANALYTICS_DIR, { recursive: true });
+  try {
+    const fd = fs.openSync(LOCK_FILE, "wx");
+    fs.closeSync(fd);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function releaseLock() {
+  fs.rmSync(LOCK_FILE, { force: true });
+}
+
+function readCursor() {
+  try {
+    const value = Number(fs.readFileSync(CURSOR_FILE, "utf8").trim());
+    return Number.isFinite(value) && value >= 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeCursor(value) {
+  fs.mkdirSync(ANALYTICS_DIR, { recursive: true });
+  fs.writeFileSync(CURSOR_FILE, `${value}\n`);
+}
+
+function parseLines(lines) {
+  return lines
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+function postBatch(runtimeConfig, events) {
+  const url = new URL(
+    `${runtimeConfig.baseUrl.replace(/\/$/, "")}${runtimeConfig.ingestPath}`,
+  );
+  const client = url.protocol === "https:" ? https : http;
+  const body = JSON.stringify({ events });
+
+  return new Promise((resolve, reject) => {
+    const req = client.request(
+      url,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "content-length": Buffer.byteLength(body),
+          connection: "close",
+        },
+      },
+      (res) => {
+        let responseBody = "";
+        res.on("data", (chunk) => {
+          responseBody += chunk.toString();
+        });
+        res.on("end", () => {
+          resolve({
+            ok: (res.statusCode || 500) >= 200 && (res.statusCode || 500) < 300,
+            body: responseBody,
+          });
+        });
+      },
+    );
+
+    req.setTimeout(3000, () => {
+      req.destroy(new Error("timeout"));
+    });
+    req.on("error", reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+async function main() {
+  const config = readConfig();
+  const telemetryMode = config.telemetry === "off" ? "off" : "anonymous";
+  if (telemetryMode === "off") {
+    return;
+  }
+
+  if (!fs.existsSync(JSONL_FILE)) {
+    return;
+  }
+
+  const runtimeConfig = readTelemetryRuntimeConfig();
+  if (!acquireLock()) {
+    return;
+  }
+
+  try {
+    if (shouldRateLimit()) {
+      return;
+    }
+
+    const allLines = fs.readFileSync(JSONL_FILE, "utf8").split(/\r?\n/);
+    const cursor = readCursor();
+    const remainingLines = allLines.slice(cursor);
+    const rawBatchLines = remainingLines.filter(Boolean).slice(0, MAX_BATCH);
+    if (rawBatchLines.length === 0) {
+      return;
+    }
+
+    const events = parseLines(rawBatchLines);
+    if (events.length === 0) {
+      writeCursor(cursor + rawBatchLines.length);
+      return;
+    }
+
+    const response = await postBatch(runtimeConfig, events);
+    if (!response.ok) {
+      touchRateFile();
+      return;
+    }
+
+    const body = JSON.parse(response.body || "null");
+    if (!body || body.ok !== true || typeof body.received !== "number") {
+      touchRateFile();
+      return;
+    }
+
+    writeCursor(cursor + rawBatchLines.length);
+    touchRateFile();
+  } finally {
+    releaseLock();
+  }
+}
+
+main().catch((error) => {
+  if (process.env.SHOWPANE_TELEMETRY_DEBUG) {
+    console.error(error instanceof Error ? error.stack : String(error));
+  }
+  try {
+    touchRateFile();
+  } catch {
+    // Ignore sync failures.
+  }
+});

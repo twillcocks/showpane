@@ -13,6 +13,13 @@ const bundleRoot = path.join(cliDir, "bundle");
 const scaffoldOut = path.join(bundleRoot, "scaffold");
 const toolchainOut = path.join(bundleRoot, "toolchain");
 const metaOut = path.join(bundleRoot, "meta");
+const packageVersion = JSON.parse(
+  fs.readFileSync(path.join(cliDir, "package.json"), "utf8")
+).version;
+const telemetryConfig = {
+  baseUrl: process.env.SHOWPANE_TELEMETRY_BASE_URL || "https://app.showpane.com",
+  ingestPath: "/api/telemetry/ingest",
+};
 const excludedScaffoldPaths = [
   ".vercel/",
   "docker/",
@@ -107,6 +114,12 @@ for (const relativePath of gitTrackedFiles("skills", "bin", "templates")) {
 copyTrackedFile(
   path.join(repoRoot, "VERSION"),
   path.join(toolchainOut, "VERSION")
+);
+
+fs.writeFileSync(path.join(toolchainOut, "CLI_VERSION"), `${packageVersion}\n`);
+fs.writeFileSync(
+  path.join(toolchainOut, "TELEMETRY_CONFIG.json"),
+  `${JSON.stringify(telemetryConfig, null, 2)}\n`
 );
 
 fs.writeFileSync(

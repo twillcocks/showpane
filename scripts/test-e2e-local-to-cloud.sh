@@ -138,6 +138,7 @@ echo "== Repo verification =="
 (cd "$APP_DIR" && npm install --no-audit)
 (cd "$APP_DIR" && npm test)
 (cd "$APP_DIR" && npm run build)
+(cd "$CLI_DIR" && npm test)
 (cd "$CLI_DIR" && npm run build)
 (cd "$CLOUD_DIR" && npm test)
 (cd "$CLOUD_DIR" && npm run build)

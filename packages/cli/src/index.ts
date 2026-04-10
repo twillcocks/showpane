@@ -36,6 +36,8 @@ const WHITE = "\x1b[37m";
 const RED = "\x1b[31m";
 
 const API_BASE = "https://app.showpane.com";
+const ORGANIZATION_REQUIRED_ERROR = "organization_required";
+const ORGANIZATION_NOT_READY_ERROR = "organization_not_ready";
 const SHOWPANE_HOME = join(homedir(), ".showpane");
 const SHOWPANE_BIN_DIR = join(SHOWPANE_HOME, "bin");
 const TOOLCHAIN_DIR = join(SHOWPANE_HOME, "toolchains");
@@ -80,6 +82,8 @@ type ShowpaneConfig = {
   deploy_mode?: string;
   orgSlug?: string;
   portalUrl?: string | null;
+  telemetry?: "anonymous" | "off" | string;
+  update_check?: boolean | string;
   shellPathConfigured?: boolean;
   shellPathConfiguredProfile?: string | null;
   shellPathPrompted?: boolean;
@@ -102,6 +106,14 @@ type CloudProjectLink = {
     directoryListing: boolean;
     nodeVersion: string;
   };
+};
+
+type OrganizationNotReadyPayload = {
+  code: typeof ORGANIZATION_NOT_READY_ERROR;
+  error: string;
+  orgSlug: string;
+  reason: string;
+  nextAction: string;
 };
 
 type UpgradePlan = {
@@ -720,9 +732,17 @@ function getShowpaneConfigPath() {
 function readShowpaneConfig(): ShowpaneConfig {
   const configPath = getShowpaneConfigPath();
   if (!existsSync(configPath)) {
-    return {};
+    return {
+      telemetry: "anonymous",
+      update_check: true,
+    };
   }
-  return readJson<ShowpaneConfig>(configPath);
+  const config = readJson<ShowpaneConfig>(configPath);
+  return {
+    telemetry: "anonymous",
+    update_check: true,
+    ...config,
+  };
 }
 
 function writeShowpaneConfig(config: ShowpaneConfig) {
@@ -730,6 +750,16 @@ function writeShowpaneConfig(config: ShowpaneConfig) {
   const configPath = getShowpaneConfigPath();
   const normalizedConfig = {
     ...config,
+    telemetry:
+      config.telemetry === "anonymous"
+        ? config.telemetry
+        : "off",
+    update_check:
+      typeof config.update_check === "boolean"
+        ? config.update_check
+        : config.update_check === "false"
+          ? false
+          : true,
     deploy_mode:
       typeof config.deploy_mode === "string"
         ? normalizeDeployMode(config.deploy_mode)
@@ -865,8 +895,29 @@ async function fetchCloudProjectLink(accessToken: string): Promise<CloudProjectL
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Could not fetch cloud project link (${res.status}): ${body}`);
+    const rawBody = await res.text();
+    let body: { code?: string } | null = null;
+    if (rawBody) {
+      try {
+        body = JSON.parse(rawBody) as { code?: string };
+      } catch {
+        body = null;
+      }
+    }
+    if (body?.code === ORGANIZATION_REQUIRED_ERROR) {
+      throw new Error("Showpane Cloud workspace required. Finish checkout, then retry.");
+    }
+    if (body?.code === ORGANIZATION_NOT_READY_ERROR) {
+      const details = body as OrganizationNotReadyPayload;
+      throw new Error(
+        `Workspace ${details.orgSlug} is not ready: ${details.error} (${details.reason}, next: ${details.nextAction}).`,
+      );
+    }
+    throw new Error(
+      rawBody
+        ? `Could not fetch cloud project link (${res.status}): ${rawBody}`
+        : `Could not fetch cloud project link (${res.status})`,
+    );
   }
 
   return res.json();
@@ -994,6 +1045,14 @@ function getManagedFilesPath(projectRoot: string) {
 
 function getProjectMetadataPath(projectRoot: string) {
   return join(projectRoot, METADATA_DIRNAME, PROJECT_METADATA_FILE);
+}
+
+function writeJustUpgradedMarker(fromVersion: string, toVersion: string) {
+  writeJson(join(SHOWPANE_HOME, ".just-upgraded.json"), {
+    from: fromVersion,
+    to: toVersion,
+    ts: new Date().toISOString(),
+  });
 }
 
 function writeProjectState(projectRoot: string, showpaneVersion: string, scaffoldManifest: ScaffoldManifest, toolchainVersion: string) {
@@ -1533,11 +1592,14 @@ function syncToolchain(bundleRoot: string, showpaneVersion: string, announce = t
 
   const helperBinDir = join(SHOWPANE_HOME, "bin");
   ensureDir(helperBinDir);
-  removePath(join(helperBinDir, "showpane-config"));
-  symlinkSync(
-    join(targetToolchain, "bin", "showpane-config"),
-    join(helperBinDir, "showpane-config")
-  );
+  for (const entry of readdirSync(join(targetToolchain, "bin"))) {
+    if (!entry.startsWith("showpane-")) continue;
+    removePath(join(helperBinDir, entry));
+    symlinkSync(
+      join(targetToolchain, "bin", entry),
+      join(helperBinDir, entry)
+    );
+  }
 
   removePath(CURRENT_TOOLCHAIN_LINK);
   symlinkSync(
@@ -1828,6 +1890,7 @@ async function upgradeProject(args: string[]) {
       scaffoldManifest,
       toolchainInfo.toolchainVersion
     );
+    writeJustUpgradedMarker(currentCliVersion, resolvedTargetVersion);
 
     green(`Project upgraded to showpane@${resolvedTargetVersion}`);
   } finally {

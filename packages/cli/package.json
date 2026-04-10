@@ -1,6 +1,6 @@
 {
   "name": "showpane",
-  "version": "0.4.13",
+  "version": "0.4.14",
   "description": "CLI for Showpane — AI-generated client portals",
   "type": "module",
   "bin": {
@@ -13,9 +13,12 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "node scripts/build-bundle.mjs && tsup src/index.ts --format esm --dts --clean",
+    "gen:skill-docs": "node scripts/gen-skill-docs.mjs",
+    "skill:check": "node scripts/skill-check.mjs && node scripts/gen-skill-docs.mjs --dry-run",
+    "build": "node scripts/gen-skill-docs.mjs && node scripts/skill-check.mjs && node scripts/build-bundle.mjs && tsup src/index.ts --format esm --dts --clean",
     "dev": "tsx src/index.ts",
     "smoke:test-local": "node scripts/smoke-test-local.mjs",
+    "test": "node scripts/gen-skill-docs.mjs --dry-run && node scripts/skill-check.mjs && node --test test/*.test.mjs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

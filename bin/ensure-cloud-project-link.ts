@@ -1,6 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const ORGANIZATION_REQUIRED_ERROR = "organization_required";
+const ORGANIZATION_NOT_READY_ERROR = "organization_not_ready";
+
+type OrganizationNotReadyPayload = {
+  code: typeof ORGANIZATION_NOT_READY_ERROR;
+  error: string;
+  orgSlug: string;
+  reason: string;
+  nextAction: string;
+};
+
 type ShowpaneConfig = {
   accessToken?: string;
 };
@@ -50,7 +61,29 @@ async function main() {
   });
 
   if (!res.ok) {
-    fail(`Could not fetch cloud project link (${res.status})`);
+    const rawBody = await res.text();
+    let body: { code?: string } | null = null;
+    if (rawBody) {
+      try {
+        body = JSON.parse(rawBody) as { code?: string };
+      } catch {
+        body = null;
+      }
+    }
+    if (body?.code === ORGANIZATION_REQUIRED_ERROR) {
+      fail("Showpane Cloud workspace required. Finish checkout, then retry.");
+    }
+    if (body?.code === ORGANIZATION_NOT_READY_ERROR) {
+      const details = body as OrganizationNotReadyPayload;
+      fail(
+        `Workspace ${details.orgSlug} is not ready: ${details.error} (${details.reason}, next: ${details.nextAction}).`,
+      );
+    }
+    fail(
+      rawBody
+        ? `Could not fetch cloud project link (${res.status}): ${rawBody}`
+        : `Could not fetch cloud project link (${res.status})`,
+    );
   }
 
   const projectLink = await res.json() as CloudProjectLink;

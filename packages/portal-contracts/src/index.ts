@@ -9,6 +9,39 @@ export const PORTAL_EVENT_TYPES = [
 
 export type PortalEventType = (typeof PORTAL_EVENT_TYPES)[number];
 export const ORGANIZATION_REQUIRED_ERROR = "organization_required" as const;
+export const ORGANIZATION_NOT_READY_ERROR = "organization_not_ready" as const;
+
+export const WORKSPACE_NEXT_ACTIONS = [
+  "open_checkout",
+  "wait_for_provisioning",
+  "open_settings",
+  "manage_billing",
+] as const;
+
+export type WorkspaceNextAction = (typeof WORKSPACE_NEXT_ACTIONS)[number];
+
+export const WORKSPACE_READINESS_REASONS = [
+  "billing_inactive",
+  "provisioning",
+  "provisioning_issue",
+  "workspace_incomplete",
+] as const;
+
+export type WorkspaceReadinessReason =
+  (typeof WORKSPACE_READINESS_REASONS)[number];
+
+export interface OrganizationNotReadyPayload {
+  code: typeof ORGANIZATION_NOT_READY_ERROR;
+  error: string;
+  orgSlug: string;
+  provisioningStatus: string | null;
+  subscriptionStatus: string | null;
+  isActive: boolean;
+  checkoutUrl?: string;
+  settingsUrl: string;
+  nextAction: WorkspaceNextAction;
+  reason: WorkspaceReadinessReason;
+}
 
 export const ANALYTICS_METADATA_KEYS = {
   durationSeconds: "durationSeconds",

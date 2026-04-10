@@ -44,7 +44,10 @@ install_skills() {
   ln -snf "$source_dir" "$CURRENT_TOOLCHAIN_LINK"
 
   mkdir -p "$SHOWPANE_DIR/bin"
-  ln -snf "$source_dir/bin/showpane-config" "$SHOWPANE_DIR/bin/showpane-config"
+  for helper in "$source_dir"/bin/showpane-*; do
+    [ -f "$helper" ] || continue
+    ln -snf "$helper" "$SHOWPANE_DIR/bin/$(basename "$helper")"
+  done
 
   local count=0
   local installed=()
@@ -171,7 +174,9 @@ if [ "$CLOUD_MODE" = true ]; then
     # Login didn't create a config (shouldn't happen), write a minimal one
     cat > "$SHOWPANE_DIR/config.json" << EOF
 {
-  "deploy_mode": "cloud"
+  "deploy_mode": "cloud",
+  "telemetry": "anonymous",
+  "update_check": true
 }
 EOF
     chmod 600 "$SHOWPANE_DIR/config.json"
@@ -195,7 +200,7 @@ echo ""
 install_skills "$SCRIPT_DIR"
 
 # Make bin scripts executable
-chmod +x "$SCRIPT_DIR/bin/showpane-config" 2>/dev/null || true
+chmod +x "$SCRIPT_DIR"/bin/showpane-* 2>/dev/null || true
 
 # ─── Create config directory ──────────────────────────────────
 if [ ! -d "$SHOWPANE_DIR" ]; then
@@ -231,7 +236,8 @@ if [ ! -f "$SHOWPANE_DIR/config.json" ]; then
   "app_path": "$SCRIPT_DIR/app",
   "deploy_mode": "local",
   "orgSlug": "",
-  "telemetry": "off"
+  "telemetry": "anonymous",
+  "update_check": true
 }
 EOF
   chmod 600 "$SHOWPANE_DIR/config.json"

@@ -1,0 +1,84 @@
+#!/usr/bin/env node
+
+import { spawn } from "node:child_process";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+function getArg(name) {
+  const args = process.argv.slice(2);
+  const index = args.indexOf(name);
+  return index === -1 ? undefined : args[index + 1];
+}
+
+function readJson(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function readCurrentToolchainVersion(showpaneHome) {
+  const currentPath = path.join(showpaneHome, "current", "CLI_VERSION");
+  try {
+    return fs.readFileSync(currentPath, "utf8").trim();
+  } catch {
+    return null;
+  }
+}
+
+function readCurrentAppVersion(appPath) {
+  if (!appPath) return null;
+  try {
+    return fs.readFileSync(path.join(appPath, "VERSION"), "utf8").trim();
+  } catch {
+    return null;
+  }
+}
+
+const showpaneHome = path.join(os.homedir(), ".showpane");
+const analyticsDir = path.join(showpaneHome, "analytics");
+const targetPath = path.join(analyticsDir, "skill-usage.jsonl");
+const config = readJson(path.join(showpaneHome, "config.json")) || {};
+const skill = getArg("--skill") ?? "unknown";
+const duration = getArg("--duration");
+const outcome = getArg("--outcome") ?? "unknown";
+const sessionId = getArg("--session-id") ?? "";
+const eventType = getArg("--event-type") ?? "skill_run";
+const source = getArg("--source") ?? "live";
+const appPath = process.env.SHOWPANE_APP_PATH || config.app_path || "";
+
+fs.mkdirSync(analyticsDir, { recursive: true });
+
+const payload = {
+  v: 1,
+  eventId: crypto.randomUUID(),
+  ts: new Date().toISOString(),
+  eventType,
+  skill,
+  durationSeconds: duration ? Number(duration) : null,
+  outcome,
+  sessionId,
+  source,
+  toolchainVersion: readCurrentToolchainVersion(showpaneHome),
+  appVersion: readCurrentAppVersion(appPath),
+  os: process.platform,
+  arch: process.arch,
+};
+
+fs.appendFileSync(targetPath, `${JSON.stringify(payload)}\n`);
+
+const telemetryMode = config.telemetry === "off" ? "off" : "anonymous";
+if (telemetryMode !== "off") {
+  const syncPath = path.join(showpaneHome, "bin", "showpane-telemetry-sync");
+  if (fs.existsSync(syncPath)) {
+    const child = spawn(syncPath, [], {
+      detached: true,
+      stdio: "ignore",
+      env: process.env,
+    });
+    child.unref();
+  }
+}

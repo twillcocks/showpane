@@ -1,0 +1,130 @@
+#!/usr/bin/env node
+
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+const SHOWPANE_HOME = path.join(os.homedir(), ".showpane");
+const CURRENT_TOOLCHAIN = path.join(SHOWPANE_HOME, "current");
+const CONFIG_PATH = path.join(SHOWPANE_HOME, "config.json");
+const CACHE_PATH = path.join(SHOWPANE_HOME, "update-check.json");
+const UPGRADE_MARKER = path.join(SHOWPANE_HOME, ".just-upgraded.json");
+const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
+function readConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function compareVersions(left, right) {
+  const lhs = left.split(/[^0-9]+/).filter(Boolean).map(Number);
+  const rhs = right.split(/[^0-9]+/).filter(Boolean).map(Number);
+  const length = Math.max(lhs.length, rhs.length);
+  for (let index = 0; index < length; index += 1) {
+    const a = lhs[index] ?? 0;
+    const b = rhs[index] ?? 0;
+    if (a !== b) return a - b;
+  }
+  return 0;
+}
+
+function readCurrentVersion() {
+  try {
+    const realToolchainPath = fs.realpathSync(CURRENT_TOOLCHAIN);
+    const versionFromPath = path.basename(realToolchainPath);
+    if (versionFromPath) {
+      return versionFromPath;
+    }
+  } catch {
+    // Fall through to file-based fallback.
+  }
+
+  try {
+    const raw = fs.readFileSync(path.join(CURRENT_TOOLCHAIN, "CLI_VERSION"), "utf8").trim();
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function readCached() {
+  try {
+    const payload = JSON.parse(fs.readFileSync(CACHE_PATH, "utf8"));
+    if (
+      typeof payload.checkedAt === "number" &&
+      Date.now() - payload.checkedAt < CACHE_TTL_MS &&
+      typeof payload.currentVersion === "string" &&
+      typeof payload.latestVersion === "string"
+    ) {
+      return payload;
+    }
+  } catch {
+    // Ignore cache issues.
+  }
+  return null;
+}
+
+function writeCache(currentVersion, latestVersion) {
+  fs.mkdirSync(SHOWPANE_HOME, { recursive: true });
+  fs.writeFileSync(
+    CACHE_PATH,
+    `${JSON.stringify({ checkedAt: Date.now(), currentVersion, latestVersion }, null, 2)}\n`,
+  );
+}
+
+function maybePrintUpgradeMarker() {
+  try {
+    const payload = JSON.parse(fs.readFileSync(UPGRADE_MARKER, "utf8"));
+    if (payload?.from && payload?.to) {
+      process.stdout.write(`JUST_UPGRADED ${payload.from} ${payload.to}\n`);
+    }
+    fs.rmSync(UPGRADE_MARKER, { force: true });
+  } catch {
+    // No marker.
+  }
+}
+
+function main() {
+  const config = readConfig();
+  if (config.update_check === false || config.update_check === "false") {
+    process.exit(0);
+  }
+
+  maybePrintUpgradeMarker();
+
+  const currentVersion = readCurrentVersion();
+  if (!currentVersion) {
+    process.exit(0);
+  }
+
+  let latestVersion = null;
+  const cached = readCached();
+  if (cached?.currentVersion === currentVersion) {
+    latestVersion = cached.latestVersion;
+  }
+
+  if (!latestVersion) {
+    try {
+      latestVersion = execFileSync("npm", ["view", "showpane", "version"], {
+        encoding: "utf8",
+        timeout: 5000,
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      if (latestVersion) {
+        writeCache(currentVersion, latestVersion);
+      }
+    } catch {
+      process.exit(0);
+    }
+  }
+
+  if (latestVersion && compareVersions(currentVersion, latestVersion) < 0) {
+    process.stdout.write(`UPGRADE_AVAILABLE ${currentVersion} ${latestVersion}\n`);
+  }
+}
+
+main();

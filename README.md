@@ -17,7 +17,13 @@ cd showpane-<your-company-slug>
 claude
 ```
 
-Then in Claude Code:
+Then in Claude Code, the recommended first-run path is:
+
+```
+/portal onboard
+```
+
+Manual prompting still works if you already know what you want:
 
 ```
 Create a portal for my call with Acme Health

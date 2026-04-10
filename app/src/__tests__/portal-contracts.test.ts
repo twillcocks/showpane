@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   ANALYTICS_METADATA_KEYS,
+  ORGANIZATION_NOT_READY_ERROR,
+  ORGANIZATION_REQUIRED_ERROR,
   isPortalEventType,
   toCloudPortalEventPayload,
 } from "@/lib/portal-contracts";
@@ -28,5 +30,10 @@ describe("portal contracts", () => {
       visitorId: "visitor-123",
       metadata: { durationSeconds: 12 },
     });
+  });
+
+  it("exports the shared cloud auth error codes", () => {
+    expect(ORGANIZATION_REQUIRED_ERROR).toBe("organization_required");
+    expect(ORGANIZATION_NOT_READY_ERROR).toBe("organization_not_ready");
   });
 });

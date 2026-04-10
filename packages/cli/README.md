@@ -22,7 +22,8 @@ Flags:
 
 ### `showpane login`
 Authenticate with Showpane Cloud for hosted portal deployment.
-This is auth only — org creation and billing happen in the Showpane Cloud web app.
+This is auth only. If the workspace is not billing/provisioning-ready yet, the
+cloud flow will send you to the relevant Showpane Cloud checkout or settings step.
 
 ### `showpane claude`
 Resume your Showpane workspace by launching Claude Code in the right project directory.

@@ -36,11 +36,11 @@ Dynamic OG images per portal with company name + logo via @vercel/og. Rich link 
 - **Effort:** S (CC: ~1h). Well-documented Vercel feature.
 - **Depends on:** Portal deployments on Vercel.
 
-### Self-hosted to cloud migration tool
-Import SQLite/Postgres data to Supabase. For users upgrading from self-hosted to cloud.
-- **Why:** Removes friction from the upgrade path. Users shouldn't lose data when converting.
+### Local to cloud migration/import tool
+Import SQLite workspace data into Showpane Cloud for users moving from local authoring to hosted production.
+- **Why:** Removes friction from the local-to-cloud handoff. Users shouldn't lose portal state when they go live.
 - **Effort:** M (CC: ~3-4h). Export script + import API.
-- **Depends on:** Cloud platform (Phase 2-3).
+- **Depends on:** Cloud platform.
 
 ### Custom domains (portal.youragency.com)
 Let cloud customers use their own domain instead of orgname.showpane.com.

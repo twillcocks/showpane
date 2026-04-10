@@ -270,6 +270,162 @@ PY
   )
 
   test -f "$TMP_PROJECT_ROOT/.vercel/output/config.json"
+
+  (
+    cd "$TMP_PROJECT_ROOT"
+    NODE_PATH="$TMP_PROJECT_ROOT/node_modules" \
+      npx tsx --tsconfig "$TMP_PROJECT_ROOT/tsconfig.json" "$REPO_ROOT/bin/export-runtime-state.ts" > "$TMP_ROOT/runtime.json"
+    NODE_PATH="$TMP_PROJECT_ROOT/node_modules" \
+      npx tsx --tsconfig "$TMP_PROJECT_ROOT/tsconfig.json" "$REPO_ROOT/bin/export-file-manifest.ts" > "$TMP_ROOT/files.json"
+    NODE_PATH="$TMP_PROJECT_ROOT/node_modules" \
+      npx tsx --tsconfig "$TMP_PROJECT_ROOT/tsconfig.json" "$REPO_ROOT/bin/create-deploy-bundle.ts" --output "$TMP_ROOT/artifact.zip" > "$TMP_ROOT/artifact.json"
+  )
+
+  ACCESS_TOKEN="$(python3 - "$REAL_SHOWPANE_CONFIG" <<'PY'
+import json
+import sys
+
+cfg = json.load(open(sys.argv[1]))
+print(cfg["accessToken"])
+PY
+)"
+
+  python3 - <<'PY' "$TMP_ROOT/files.json" "$ACCESS_TOKEN"
+import json
+import sys
+import urllib.request
+
+files_path, token = sys.argv[1], sys.argv[2]
+req = urllib.request.Request(
+    "https://app.showpane.com/api/files/plan",
+    data=open(files_path, "rb").read(),
+    headers={
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    },
+)
+with urllib.request.urlopen(req) as res:
+    print(res.read().decode())
+PY
+
+  PORTAL_COUNT="$(python3 - "$TMP_ROOT/runtime.json" <<'PY'
+import json
+import sys
+
+payload = json.load(open(sys.argv[1]))
+print(len(payload.get("portals", [])))
+PY
+)"
+
+  INIT_RESPONSE="$(
+    curl -sS -X POST "$SHOWPANE_CLOUD_URL/api/deployments" \
+      -H "Authorization: Bearer $ACCESS_TOKEN" \
+      -H "Content-Type: application/json" \
+      --data-binary '{}'
+  )"
+  printf '%s\n' "$INIT_RESPONSE" > "$TMP_ROOT/init-response.json"
+
+  DEPLOY_ID="$(python3 - "$TMP_ROOT/init-response.json" <<'PY'
+import json
+import sys
+
+payload = json.load(open(sys.argv[1]))
+if payload.get("error"):
+    raise SystemExit(payload["error"])
+print(payload["deploymentId"])
+PY
+)"
+
+  ARTIFACT_UPLOAD_URL="$(python3 - "$TMP_ROOT/init-response.json" <<'PY'
+import json
+import sys
+
+payload = json.load(open(sys.argv[1]))
+print(payload["artifactUploadUrl"])
+PY
+)"
+
+  curl -sS -X PUT "$ARTIFACT_UPLOAD_URL" \
+    -H "Content-Type: application/zip" \
+    --data-binary @"$TMP_ROOT/artifact.zip" \
+    >/dev/null
+
+  FINALIZE_PAYLOAD="$TMP_ROOT/finalize.json"
+  python3 - <<'PY' "$TMP_ROOT/runtime.json" "$PORTAL_COUNT" > "$FINALIZE_PAYLOAD"
+import json
+import sys
+
+runtime_path = sys.argv[1]
+portal_count = int(sys.argv[2])
+payload = {
+    "portalCount": portal_count,
+    "runtimeData": json.load(open(runtime_path)),
+}
+print(json.dumps(payload))
+PY
+
+  FINALIZE_RESPONSE="$(
+    curl -sS -X POST "$SHOWPANE_CLOUD_URL/api/deployments/$DEPLOY_ID/finalize" \
+      -H "Authorization: Bearer $ACCESS_TOKEN" \
+      -H "Content-Type: application/json" \
+      --data-binary @"$FINALIZE_PAYLOAD"
+  )"
+  printf '%s\n' "$FINALIZE_RESPONSE" > "$TMP_ROOT/finalize-response.json"
+
+  python3 - <<'PY' "$TMP_ROOT/finalize-response.json"
+import json
+import sys
+
+payload = json.load(open(sys.argv[1]))
+if payload.get("error"):
+    raise SystemExit(payload["error"])
+PY
+
+  STATUS=""
+  for _ in $(seq 1 60); do
+    sleep 5
+    STATUS_JSON="$(
+      curl -sS \
+        -H "Authorization: Bearer $ACCESS_TOKEN" \
+        "$SHOWPANE_CLOUD_URL/api/deployments/$DEPLOY_ID"
+    )"
+    printf '%s\n' "$STATUS_JSON" > "$TMP_ROOT/status.json"
+    STATUS="$(python3 - "$TMP_ROOT/status.json" <<'PY'
+import json
+import sys
+
+print(json.load(open(sys.argv[1])).get("status", ""))
+PY
+)"
+    if [[ "$STATUS" == "live" ]]; then
+      break
+    fi
+    if [[ "$STATUS" == "failed" || "$STATUS" == "unhealthy" ]]; then
+      cat "$TMP_ROOT/status.json" >&2
+      exit 1
+    fi
+  done
+
+  if [[ "$STATUS" != "live" ]]; then
+    echo "Cloud deployment did not reach live" >&2
+    exit 1
+  fi
+
+  LIVE_URL="$(python3 - "$TMP_ROOT/status.json" "$TMP_ROOT/finalize-response.json" <<'PY'
+import json
+import sys
+
+for path in sys.argv[1:]:
+    payload = json.load(open(path))
+    for key in ("liveUrl", "url"):
+        if payload.get(key):
+            print(payload[key])
+            raise SystemExit
+raise SystemExit("No live URL returned")
+PY
+)"
+
+  curl -sS -o /dev/null -w "%{http_code}" "$LIVE_URL/api/health" | grep -q '^200$'
 else
   echo
   echo "== Cloud bridge checks skipped =="

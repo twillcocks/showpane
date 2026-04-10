@@ -180,6 +180,7 @@ export function PortalShell({
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [visitorId] = useState(() => getOrCreateVisitorId());
+  const [showLocalBanner, setShowLocalBanner] = useState(false);
 
   useEffect(() => {
     const syncFromHash = () => setActiveTab(readHashTab(tabIds));
@@ -199,6 +200,12 @@ export function PortalShell({
     const timeout = window.setTimeout(() => { setCopied(false); setCopyError(false); }, 2000);
     return () => window.clearTimeout(timeout);
   }, [copied, copyError]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const host = window.location.hostname;
+    setShowLocalBanner(host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0");
+  }, []);
 
   useSectionTimeTracking(activeTab, resolvedEventsEndpoint, visitorId);
 
@@ -232,6 +239,22 @@ export function PortalShell({
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <div className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur">
+        {showLocalBanner && (
+          <div className="border-b border-amber-200 bg-amber-50">
+            <div className="mx-auto flex max-w-4xl items-center gap-2 px-4 py-2 text-[11px] font-medium text-amber-900 sm:px-6 sm:text-xs">
+              <span className="inline-flex shrink-0 whitespace-nowrap rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-900 sm:text-[11px]">
+                Local preview
+              </span>
+              <span>
+                This portal is local only. Tell Claude{" "}
+                <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-amber-950 sm:text-xs">
+                  /portal deploy
+                </code>{" "}
+                to publish it to Showpane Cloud.
+              </span>
+            </div>
+          </div>
+        )}
         <header className="border-b bg-white/90">
           <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:px-6">
             <div className="flex items-center gap-3">

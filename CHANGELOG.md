@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.5 (2026-04-11)
+
+### Changed — First-Run Onboarding
+- **Installer collects account basics up front** — `npx showpane` now asks for company name, full name, email, and website/domain before scaffolding so the local workspace starts with real org context instead of re-asking those details later
+- **Onboarding tone tightened** — `/portal-onboard` now opens with a shorter, calmer first message, asks one thing at a time, defaults telemetry silently to anonymous, and moves into portal work without extra setup narration
+- **Real command names in user-facing copy** — docs, setup text, localhost welcome copy, cloud onboarding pages, and email/provisioning copy now consistently use the actual hyphenated slash commands such as `/portal-onboard` and `/portal-deploy`
+- **Demo seed removed from normal first run** — the local seed path now creates the real organization from installer answers and no longer relies on the seeded demo org/portal fallback for standard installs
+
 ## 0.2.4 (2026-04-09)
 
 ### Fixed — Local SQLite Reliability

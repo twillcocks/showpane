@@ -5,11 +5,11 @@ the current user task.
 
 ## Product defaults
 
-- The canonical first-run path is `/portal onboard`.
-- `/portal create` is the faster repeat-user path.
+- The canonical first-run path is `/portal-onboard`.
+- `/portal-create` is the faster repeat-user path.
 - Local authoring and local preview come first.
-- External sharing starts with `/portal deploy`.
-- `/portal share` is a hosted convenience after publish, not the main first-run path.
+- External sharing starts with `/portal-deploy`.
+- `/portal-share` is a hosted convenience after publish, not the main first-run path.
 
 ## Operator guidance
 

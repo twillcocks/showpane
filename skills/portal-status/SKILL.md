@@ -15,7 +15,7 @@ SHOWPANE_HOME="$HOME/.showpane"
 SHOWPANE_BIN="$SHOWPANE_HOME/bin"
 CONFIG="$SHOWPANE_HOME/config.json"
 if [ ! -f "$CONFIG" ]; then
-  echo "Showpane not configured. Run /portal setup first."
+  echo "Showpane not configured. Run /portal-setup first."
   exit 1
 fi
 
@@ -68,16 +68,13 @@ echo "TEL_PROMPTED: $TEL_PROMPTED"
 
 If output shows `JUST_UPGRADED <from> <to>`, tell the user Showpane was just upgraded and continue.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal upgrade`.
+If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal-upgrade`.
 
-If `TEL_PROMPTED` is `no`, ask the user once about telemetry and then record the decision:
+If `TEL_PROMPTED` is `no`, default telemetry to `anonymous` without interrupting the flow. Do not mention telemetry unless the user asks.
 
-- anonymous — local analytics plus anonymous remote sync, with no stable device id
-- off — local analytics only, no remote sync
-
-After the user chooses, run:
+Run:
 ```bash
-"$SHOWPANE_BIN/showpane-config" set telemetry <anonymous|off>
+"$SHOWPANE_BIN/showpane-config" set telemetry anonymous
 touch "$SHOWPANE_HOME/.telemetry-prompted"
 ```
 
@@ -118,7 +115,7 @@ If the org has zero portals, display:
 ```
 SHOWPANE STATUS DASHBOARD
 ════════════════════════════════════════════════════════════
-  No portals yet. Run /portal create to get started.
+  No portals yet. Run /portal-create to get started.
 ════════════════════════════════════════════════════════════
 ```
 
@@ -211,11 +208,11 @@ NEEDS ATTENTION
 Guidelines for suggestions:
 
 - **No views, has credentials**: "Check if credentials were shared with the client."
-- **No views, no credentials**: "Set up credentials with /portal credentials <slug> and publish with /portal deploy before sharing externally."
+- **No views, no credentials**: "Set up credentials with /portal-credentials <slug> and publish with /portal-deploy before sharing externally."
 - **Stale content (> 90 days)**: "Content last updated X months ago. Consider refreshing."
 - **No files**: "Add documents to increase engagement."
 - **Declining activity (had views before, none now)**: "Activity has dropped off. Consider a follow-up."
-- **Old credentials (> 90 days)**: "Credentials are X months old. Consider rotating with /portal credentials <slug>."
+- **Old credentials (> 90 days)**: "Credentials are X months old. Consider rotating with /portal-credentials <slug>."
 
 Limit to 3 suggestions per portal maximum. Prioritize by impact.
 
@@ -255,7 +252,7 @@ Provide this legend if the user asks what the scores mean or on first use:
 
 ## Dashboard Refresh
 
-The status dashboard is a point-in-time snapshot. It does not auto-refresh or watch for changes. If the user wants to monitor portal health over time, suggest running `/portal status` periodically (e.g., weekly) or setting up a scheduled task.
+The status dashboard is a point-in-time snapshot. It does not auto-refresh or watch for changes. If the user wants to monitor portal health over time, suggest running `/portal-status` periodically (e.g., weekly) or setting up a scheduled task.
 
 If learnings indicate the user runs status checks regularly, track the trend: "Average health this week: 6.2/10 (up from 5.5/10 last week)." This requires comparing against previous status check results stored in learnings.
 

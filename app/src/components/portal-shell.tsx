@@ -248,7 +248,7 @@ export function PortalShell({
               <span>
                 This portal is local only. Tell Claude{" "}
                 <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-amber-950 sm:text-xs">
-                  /portal deploy
+                  /portal-deploy
                 </code>{" "}
                 to publish it to Showpane Cloud.
               </span>

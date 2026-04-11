@@ -1,9 +1,8 @@
 "use client";
 
 /**
- * Reference portal — the /portal create skill reads this file as the quality
+ * Reference portal — the /portal-create skill reads this file as the quality
  * and style guide when generating new portals. Keep it polished.
- * Login: username "example", password "demo-only-password" (seeded by prisma/seed.ts)
  */
 
 import { type ReactNode } from "react";

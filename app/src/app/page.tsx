@@ -118,10 +118,10 @@ export default async function Home() {
                   Recommended
                 </p>
                 <p className="mt-3 font-mono text-sm leading-6 text-slate-700">
-                  /portal onboard
+                  /portal-onboard
                 </p>
               </div>
-              <CopyButton text="/portal onboard" />
+              <CopyButton text="/portal-onboard" />
             </div>
           </section>
 

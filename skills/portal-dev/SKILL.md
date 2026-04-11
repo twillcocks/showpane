@@ -15,7 +15,7 @@ SHOWPANE_HOME="$HOME/.showpane"
 SHOWPANE_BIN="$SHOWPANE_HOME/bin"
 CONFIG="$SHOWPANE_HOME/config.json"
 if [ ! -f "$CONFIG" ]; then
-  echo "Showpane not configured. Run /portal setup first."
+  echo "Showpane not configured. Run /portal-setup first."
   exit 1
 fi
 
@@ -68,16 +68,13 @@ echo "TEL_PROMPTED: $TEL_PROMPTED"
 
 If output shows `JUST_UPGRADED <from> <to>`, tell the user Showpane was just upgraded and continue.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal upgrade`.
+If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal-upgrade`.
 
-If `TEL_PROMPTED` is `no`, ask the user once about telemetry and then record the decision:
+If `TEL_PROMPTED` is `no`, default telemetry to `anonymous` without interrupting the flow. Do not mention telemetry unless the user asks.
 
-- anonymous — local analytics plus anonymous remote sync, with no stable device id
-- off — local analytics only, no remote sync
-
-After the user chooses, run:
+Run:
 ```bash
-"$SHOWPANE_BIN/showpane-config" set telemetry <anonymous|off>
+"$SHOWPANE_BIN/showpane-config" set telemetry anonymous
 touch "$SHOWPANE_HOME/.telemetry-prompted"
 ```
 
@@ -119,7 +116,7 @@ If a process is listening on port 3000:
 
 3. If it's a different process, warn the user:
    > "Port 3000 is in use by another process (PID: <pid>). Options:"
-   > - Kill it: `kill <pid>` then re-run `/portal dev`
+   > - Kill it: `kill <pid>` then re-run `/portal-dev`
    > - Use a different port: `cd $APP_PATH && PORT=3001 npm run dev`
 
    Ask the user how to proceed. Do not kill processes without explicit permission.
@@ -245,9 +242,9 @@ Then show tips:
 
 ```
 Tips:
-  - Create a portal:   /portal create <slug>
-  - Edit a portal:     /portal update <slug>
-  - View all portals:  /portal list
+  - Create a portal:   /portal-create <slug>
+  - Edit a portal:     /portal-update <slug>
+  - View all portals:  /portal-list
   - Hot reload is ON:  edits to portal files appear instantly
   - Stop the server:   Ctrl+C in the terminal, or kill the process
 ```
@@ -291,7 +288,7 @@ The Next.js dev server watches all files under `src/` for changes. When you edit
 Portals in development can be accessed in two ways:
 
 1. **Direct URL**: Navigate to `http://localhost:3000/client/<slug>` — this bypasses authentication during local development if the portal doesn't have credentials set yet
-2. **Login page**: Navigate to `http://localhost:3000/client` — use this to test the full authentication flow with credentials created via `/portal credentials`
+2. **Login page**: Navigate to `http://localhost:3000/client` — use this to test the full authentication flow with credentials created via `/portal-credentials`
 
 The example portal at `/client/example` always works without authentication and is a useful reference while building new portals.
 

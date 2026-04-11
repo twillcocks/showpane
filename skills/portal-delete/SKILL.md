@@ -25,7 +25,7 @@ SHOWPANE_HOME="$HOME/.showpane"
 SHOWPANE_BIN="$SHOWPANE_HOME/bin"
 CONFIG="$SHOWPANE_HOME/config.json"
 if [ ! -f "$CONFIG" ]; then
-  echo "Showpane not configured. Run /portal setup first."
+  echo "Showpane not configured. Run /portal-setup first."
   exit 1
 fi
 
@@ -78,16 +78,13 @@ echo "TEL_PROMPTED: $TEL_PROMPTED"
 
 If output shows `JUST_UPGRADED <from> <to>`, tell the user Showpane was just upgraded and continue.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal upgrade`.
+If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal-upgrade`.
 
-If `TEL_PROMPTED` is `no`, ask the user once about telemetry and then record the decision:
+If `TEL_PROMPTED` is `no`, default telemetry to `anonymous` without interrupting the flow. Do not mention telemetry unless the user asks.
 
-- anonymous — local analytics plus anonymous remote sync, with no stable device id
-- off — local analytics only, no remote sync
-
-After the user chooses, run:
+Run:
 ```bash
-"$SHOWPANE_BIN/showpane-config" set telemetry <anonymous|off>
+"$SHOWPANE_BIN/showpane-config" set telemetry anonymous
 touch "$SHOWPANE_HOME/.telemetry-prompted"
 ```
 
@@ -121,7 +118,7 @@ Soft delete is intentional. Nothing is truly destroyed. If the user changes thei
 
 ### Step 1: Identify the target portal
 
-The user must specify which portal to deactivate. If no slug is provided, ask: "Which portal do you want to deactivate? Run /portal list to see your portals."
+The user must specify which portal to deactivate. If no slug is provided, ask: "Which portal do you want to deactivate? Run /portal-list to see your portals."
 
 Do not proceed without a confirmed slug.
 
@@ -158,7 +155,7 @@ Expected success response:
 
 Expected error responses:
 
-- `portal_not_found`: The slug does not exist in this organization. Suggest `/portal list`.
+- `portal_not_found`: The slug does not exist in this organization. Suggest `/portal-list`.
 - `already_inactive`: The portal is already deactivated. Inform the user: "Portal '<slug>' is already inactive. No changes made."
 
 ### Step 4: Print confirmation
@@ -194,7 +191,7 @@ Depending on context:
 
 - "To reactivate this portal later, update the database record: set `isActive` to `true` on the ClientPortal with slug '<slug>'."
 - "To permanently remove the page files: `git rm -r src/app/(portal)/client/<slug>/` and commit."
-- "To see your remaining portals: /portal list"
+- "To see your remaining portals: /portal-list"
 
 ## What Deactivation Does NOT Do
 
@@ -207,7 +204,7 @@ Be explicit about what this skill does not touch:
 
 ## Edge Cases
 
-- **Portal with active share link**: Deactivation invalidates the link because the portal is no longer active. If the portal should stay active but all tokens must be revoked, rotate credentials with `/portal credentials <slug>`.
+- **Portal with active share link**: Deactivation invalidates the link because the portal is no longer active. If the portal should stay active but all tokens must be revoked, rotate credentials with `/portal-credentials <slug>`.
 - **Portal already inactive**: The script returns `already_inactive`. Do not treat this as an error -- just inform the user.
 - **Last remaining portal**: No special handling. The user can deactivate their last portal. The organization continues to exist with zero active portals.
 
@@ -222,7 +219,7 @@ Be explicit about what this skill does not touch:
 ## Error Handling
 
 - If the preamble fails, stop and display the error.
-- If the portal is not found, suggest `/portal list` to verify the slug.
+- If the portal is not found, suggest `/portal-list` to verify the slug.
 - If the database operation fails, show the error from stderr. Common cause: database connection issues.
 - If the user cancels, acknowledge cleanly and stop. Do not ask again.
 
@@ -243,9 +240,9 @@ cd $APP_PATH && npx tsx -e "
 "
 ```
 
-This is intentionally manual. There is no `/portal reactivate` skill in v1. Reactivation should be a deliberate choice, not a casual undo.
+This is intentionally manual. There is no `/portal-reactivate` skill in v1. Reactivation should be a deliberate choice, not a casual undo.
 
-**Option 2: Re-create the portal.** If the page files were deleted from git after deactivation, the simplest path is to run `/portal create <slug>` again. This creates new page files and a new database record. The old analytics data is tied to the old record and will not carry over.
+**Option 2: Re-create the portal.** If the page files were deleted from git after deactivation, the simplest path is to run `/portal-create <slug>` again. This creates new page files and a new database record. The old analytics data is tied to the old record and will not carry over.
 
 ## Audit Trail
 
@@ -261,7 +258,7 @@ If learnings are enabled, the skill records the deactivation event:
 {"skill":"portal-delete","key":"deactivated","insight":"whzan deactivated on 2026-04-07","confidence":10,"ts":"2026-04-07T15:00:00Z"}
 ```
 
-This helps other skills provide context. For example, `/portal status` can note when a portal was deactivated if the user asks about it.
+This helps other skills provide context. For example, `/portal-status` can note when a portal was deactivated if the user asks about it.
 
 ## Bulk Deactivation
 
@@ -274,7 +271,7 @@ If the user explicitly asks to "deactivate all portals" or "shut everything down
 Two operations can revoke client access, and they serve different purposes:
 
 - **Deactivation** (this skill): Removes the portal entirely from client view. New visitors see "not found". Existing sessions and share links stop working because the portal is inactive. Use when the client relationship has ended or the portal is no longer needed.
-- **Credential rotation** (`/portal credentials`): Changes the password and invalidates all tokens (sessions + share links). The portal remains active and accessible. Use when credentials may be compromised but the portal should stay live.
+- **Credential rotation** (`/portal-credentials`): Changes the password and invalidates all tokens (sessions + share links). The portal remains active and accessible. Use when credentials may be compromised but the portal should stay live.
 
 If the user wants to immediately revoke all access AND deactivate, the sequence is: rotate credentials first (to kill existing sessions immediately), then deactivate (to prevent new logins).
 

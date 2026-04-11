@@ -7,7 +7,7 @@
  * Structure: Overview (welcome + next steps) → Meeting Notes → Documents
  *
  * This file is READ by Claude Code as a reference, not used directly.
- * /portal create reads this to understand the tab structure and content patterns.
+ * /portal-create reads this to understand the tab structure and content patterns.
  */
 
 import { type ReactNode } from "react";

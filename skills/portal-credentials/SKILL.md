@@ -25,7 +25,7 @@ SHOWPANE_HOME="$HOME/.showpane"
 SHOWPANE_BIN="$SHOWPANE_HOME/bin"
 CONFIG="$SHOWPANE_HOME/config.json"
 if [ ! -f "$CONFIG" ]; then
-  echo "Showpane not configured. Run /portal setup first."
+  echo "Showpane not configured. Run /portal-setup first."
   exit 1
 fi
 
@@ -78,16 +78,13 @@ echo "TEL_PROMPTED: $TEL_PROMPTED"
 
 If output shows `JUST_UPGRADED <from> <to>`, tell the user Showpane was just upgraded and continue.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal upgrade`.
+If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal-upgrade`.
 
-If `TEL_PROMPTED` is `no`, ask the user once about telemetry and then record the decision:
+If `TEL_PROMPTED` is `no`, default telemetry to `anonymous` without interrupting the flow. Do not mention telemetry unless the user asks.
 
-- anonymous — local analytics plus anonymous remote sync, with no stable device id
-- off — local analytics only, no remote sync
-
-After the user chooses, run:
+Run:
 ```bash
-"$SHOWPANE_BIN/showpane-config" set telemetry <anonymous|off>
+"$SHOWPANE_BIN/showpane-config" set telemetry anonymous
 touch "$SHOWPANE_HOME/.telemetry-prompted"
 ```
 
@@ -109,7 +106,7 @@ If `skills/shared/platform-constraints.md` exists, read it once near the start o
 
 ### Step 1: Identify the portal
 
-If the user provided a slug (e.g., `/portal credentials acme-health`), use it. Otherwise, list available portals to help the user choose:
+If the user provided a slug (e.g., `/portal-credentials acme-health`), use it. Otherwise, list available portals to help the user choose:
 
 ```bash
 cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/list-portals.ts" --org-id <org_id>
@@ -117,9 +114,9 @@ cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PA
 
 Present the list and ask which portal needs credentials. If there is only one portal, confirm it rather than asking.
 
-Verify the portal exists by checking the database. The `create-portal.ts` script should have been run during `/portal create` to register the portal. If no DB record exists, inform the user:
+Verify the portal exists by checking the database. The `create-portal.ts` script should have been run during `/portal-create` to register the portal. If no DB record exists, inform the user:
 
-> "No portal record found for '<slug>'. Run `/portal create <slug>` first to register it."
+> "No portal record found for '<slug>'. Run `/portal-create <slug>` first to register it."
 
 Also check the portal's current credential status from the list output. If credentials already exist, inform the user before proceeding:
 
@@ -156,7 +153,7 @@ The script returns JSON on stdout:
 
 If the script returns an error, handle it based on the error type:
 
-- `portal_not_found` — The portal slug doesn't exist in the database for this org. Suggest running `/portal create <slug>` first.
+- `portal_not_found` — The portal slug doesn't exist in the database for this org. Suggest running `/portal-create <slug>` first.
 - `database_error` — Connection or query failure. Check DATABASE_URL and re-apply the local schema with `cd $APP_PATH && npm run prisma:db-push`.
 - `auth_secret_missing` — The AUTH_SECRET environment variable is not set in `$APP_PATH/.env`. The rotate-credentials script needs this to function. Suggest adding `AUTH_SECRET=<random-string>` to the .env file.
 
@@ -183,7 +180,7 @@ The ASCII box ensures the credentials stand out clearly in terminal output. Do n
 
 Immediately after displaying credentials, show this warning:
 
-> **Save these credentials now.** They will not be shown again. The password is hashed in the database and cannot be retrieved. If lost, run `/portal credentials <slug>` again to rotate to a new password.
+> **Save these credentials now.** They will not be shown again. The password is hashed in the database and cannot be retrieved. If lost, run `/portal-credentials <slug>` again to rotate to a new password.
 
 If this was a rotation (`"rotated": true`), add:
 
@@ -196,8 +193,8 @@ Provide guidance on how to share the credentials with the client:
 > **How to share with your client:**
 > - Send the username and password via a secure channel (encrypted email, Signal, etc.)
 > - The login page is at `/client` — the client enters the portal slug as the "company" field, then the username and password
-> - For external access, publish the portal first with `/portal deploy`
-> - After publish, you can use `/portal share <slug>` if you want a direct hosted link instead of asking the client to log in
+> - For external access, publish the portal first with `/portal-deploy`
+> - After publish, you can use `/portal-share <slug>` if you want a direct hosted link instead of asking the client to log in
 
 Recommend against sharing credentials via:
 - Unencrypted email (can be intercepted)
@@ -236,8 +233,8 @@ Credentials created for: acme-health
 
 Next steps:
   1. Send credentials to the client via a secure channel
-  2. Deploy if not already live: /portal deploy
-  3. Optional hosted direct link after publish: /portal share <slug>
+  2. Deploy if not already live: /portal-deploy
+  3. Optional hosted direct link after publish: /portal-share <slug>
 ```
 
 ### Step 9: Record credential event
@@ -259,7 +256,7 @@ echo '{"skill":"portal-credentials","key":"credentials-created","insight":"Creat
 
 ## Error Handling
 
-- **Script not found**: If `$SKILL_DIR/bin/rotate-credentials.ts` does not exist, the skill pack may not be fully installed. Suggest running `/portal upgrade` or checking the Showpane installation.
+- **Script not found**: If `$SKILL_DIR/bin/rotate-credentials.ts` does not exist, the skill pack may not be fully installed. Suggest running `/portal-upgrade` or checking the Showpane installation.
 - **Prisma connection error**: DATABASE_URL may be wrong or the database may be down. Check the .env file and database status.
 - **Permission denied on .env**: The preamble sources `$APP_PATH/.env`. If this file is not readable, the DATABASE_URL will not be set. Check file permissions.
 - **Script timeout**: If the script takes more than 30 seconds, something is wrong. The most common cause is a database connection timeout — check network connectivity to the database host.

@@ -1256,9 +1256,35 @@ async function generateLocalDatabase(projectRoot: string, databaseUrl: string, v
   }
 }
 
-async function seedProject(projectRoot: string, databaseUrl: string, verbose?: boolean) {
+async function seedProject(
+  projectRoot: string,
+  databaseUrl: string,
+  seedOptions: {
+    organizationName?: string;
+    organizationSlug?: string;
+    contactName?: string;
+    contactEmail?: string;
+    websiteUrl?: string;
+  } = {},
+  verbose?: boolean,
+) {
   const env = getInstallerEnv({
     DATABASE_URL: databaseUrl,
+    ...(seedOptions.organizationName
+      ? { SHOWPANE_ORG_NAME: seedOptions.organizationName }
+      : {}),
+    ...(seedOptions.organizationSlug
+      ? { SHOWPANE_ORG_SLUG: seedOptions.organizationSlug }
+      : {}),
+    ...(seedOptions.contactName
+      ? { SHOWPANE_CONTACT_NAME: seedOptions.contactName }
+      : {}),
+    ...(seedOptions.contactEmail
+      ? { SHOWPANE_CONTACT_EMAIL: seedOptions.contactEmail }
+      : {}),
+    ...(seedOptions.websiteUrl
+      ? { SHOWPANE_WEBSITE_URL: seedOptions.websiteUrl }
+      : {}),
   });
   if (verbose === undefined) {
     run("npx tsx prisma/seed.ts", projectRoot, env);
@@ -1351,7 +1377,6 @@ function printCreateSuccessCard(projectRoot: string, url: string, pathSetup: Pat
   console.log();
   console.log(`  ${BOLD}Project:${RESET} ${projectRoot}`);
   console.log(`  ${BOLD}App:${RESET}     ${url}`);
-  console.log(`  ${BOLD}Demo:${RESET}    example / demo-only-password`);
   console.log();
   console.log(`  ${BOLD}Next (in a new terminal window):${RESET}`);
   console.log(`    ${DIM}${resumeCommand}${RESET}`);
@@ -1679,6 +1704,25 @@ async function createProject(args: string[]) {
     process.exit(1);
   }
 
+  if (!options.yes && process.stdin.isTTY && process.stdout.isTTY) {
+    console.log();
+    blue("Let's get some basic info to set up your account.");
+    console.log();
+  }
+
+  const contactName =
+    options.yes || !process.stdin.isTTY || !process.stdout.isTTY
+      ? ""
+      : await ask(`  ${BOLD}What's your full name?${RESET} `);
+  const contactEmail =
+    options.yes || !process.stdin.isTTY || !process.stdout.isTTY
+      ? ""
+      : await ask(`  ${BOLD}What's your email?${RESET} `);
+  const websiteUrl =
+    options.yes || !process.stdin.isTTY || !process.stdout.isTTY
+      ? ""
+      : await ask(`  ${BOLD}What's your company website or domain?${RESET} `);
+
   const slug = toSlug(companyName);
   const dirName = `showpane-${slug}`;
   const projectRoot = resolve(process.cwd(), dirName);
@@ -1725,7 +1769,18 @@ async function createProject(args: string[]) {
   stepStartForCreate("Configuring database", options);
   try {
     await generateLocalDatabase(projectRoot, databaseUrl, options.verbose);
-    await seedProject(projectRoot, databaseUrl, options.verbose);
+    await seedProject(
+      projectRoot,
+      databaseUrl,
+      {
+        organizationName: companyName,
+        organizationSlug: slug,
+        contactName,
+        contactEmail,
+        websiteUrl,
+      },
+      options.verbose,
+    );
     stepSuccessForCreate("Database configured");
   } catch (errorLike) {
     stepFailureForCreate(
@@ -1742,7 +1797,7 @@ async function createProject(args: string[]) {
     updateWorkspaceFromConfig(config, projectRoot, {
       name: dirName,
       deployMode: "local",
-      orgSlug: "",
+      orgSlug: slug,
     });
     writeShowpaneConfig(config);
     writeProjectState(

@@ -18,7 +18,7 @@ SHOWPANE_HOME="$HOME/.showpane"
 SHOWPANE_BIN="$SHOWPANE_HOME/bin"
 CONFIG="$SHOWPANE_HOME/config.json"
 if [ ! -f "$CONFIG" ]; then
-  echo "Showpane not configured. Run /portal setup first."
+  echo "Showpane not configured. Run /portal-setup first."
   exit 1
 fi
 
@@ -71,16 +71,13 @@ echo "TEL_PROMPTED: $TEL_PROMPTED"
 
 If output shows `JUST_UPGRADED <from> <to>`, tell the user Showpane was just upgraded and continue.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal upgrade`.
+If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal-upgrade`.
 
-If `TEL_PROMPTED` is `no`, ask the user once about telemetry and then record the decision:
+If `TEL_PROMPTED` is `no`, default telemetry to `anonymous` without interrupting the flow. Do not mention telemetry unless the user asks.
 
-- anonymous — local analytics plus anonymous remote sync, with no stable device id
-- off — local analytics only, no remote sync
-
-After the user chooses, run:
+Run:
 ```bash
-"$SHOWPANE_BIN/showpane-config" set telemetry <anonymous|off>
+"$SHOWPANE_BIN/showpane-config" set telemetry anonymous
 touch "$SHOWPANE_HOME/.telemetry-prompted"
 ```
 
@@ -108,7 +105,7 @@ Share links use HMAC-SHA256 signed tokens. The token encodes the portal slug, a 
 
 ### Step 1: Identify the target portal
 
-The user must specify which portal to share. If no slug is provided, ask: "Which portal do you want to share? Run /portal list to see your portals."
+The user must specify which portal to share. If no slug is provided, ask: "Which portal do you want to share? Run /portal-list to see your portals."
 
 Do not proceed without a slug. Share links are portal-specific.
 
@@ -134,8 +131,8 @@ Expected success response:
 
 Expected error responses:
 
-- `portal_not_found`: The slug does not exist. Suggest `/portal list`.
-- `no_credentials`: The portal has no credentials set up. Share links require credentials because the token's validity is tied to the credential version. Suggest running `/portal credentials <slug>` first.
+- `portal_not_found`: The slug does not exist. Suggest `/portal-list`.
+- `no_credentials`: The portal has no credentials set up. Share links require credentials because the token's validity is tied to the credential version. Suggest running `/portal-credentials <slug>` first.
 - `no_auth_secret`: AUTH_SECRET is not set in the app's `.env`. The user needs to add one. Suggest: `openssl rand -base64 32` to generate a secret.
 - `no_app_url`: NEXT_PUBLIC_APP_URL is not set. The script cannot construct the full share URL. Ask the user what their portal's public URL is.
 
@@ -164,7 +161,7 @@ If the user has previously generated share links (check learnings for patterns),
 Share links are a convenience feature with intentional security trade-offs:
 
 - **No automatic expiry**: Links remain valid until credentials are rotated, the portal is deactivated, or AUTH_SECRET changes.
-- **Credential version binding**: Rotating credentials invalidates all outstanding share links. This is the revocation mechanism -- if a link is compromised, rotate credentials with `/portal credentials <slug>`.
+- **Credential version binding**: Rotating credentials invalidates all outstanding share links. This is the revocation mechanism -- if a link is compromised, rotate credentials with `/portal-credentials <slug>`.
 - **Single portal scope**: Each link grants access to exactly one portal. A share link for "whzan" cannot be used to access "acme".
 - **No re-use tracking**: The link can be used multiple times by anyone who has it. There is no per-user tracking on share links.
 
@@ -175,13 +172,13 @@ Do NOT log the share URL to learnings or telemetry. The URL contains the signed 
 - Always display the full URL, never truncate or abbreviate it. The user needs to copy-paste it.
 - Make it clear that the link does not expire automatically and is revoked by credential rotation or portal deactivation.
 - Use double-line box drawing (`═`) for the border around the link.
-- If NEXT_PUBLIC_APP_URL is `http://localhost:3000`, warn the user immediately: "This is a local development URL. Do not send this to a client. Publish with /portal deploy first, then generate the share link again."
+- If NEXT_PUBLIC_APP_URL is `http://localhost:3000`, warn the user immediately: "This is a local development URL. Do not send this to a client. Publish with /portal-deploy first, then generate the share link again."
 
 ## Error Handling
 
 - If AUTH_SECRET is missing, this is a hard blocker. Explain that share links require a signing secret and provide the generation command: `openssl rand -base64 32`.
 - If the portal has no credentials, explain that share links are tied to credential versions and the user needs to set up credentials first.
-- If the script fails for any other reason, show the error message from stderr and suggest the user check their configuration with `/portal status`.
+- If the script fails for any other reason, show the error message from stderr and suggest the user check their configuration with `/portal-status`.
 
 ## Token Anatomy
 
@@ -214,15 +211,15 @@ The signature is computed using AUTH_SECRET from the app's `.env`. If AUTH_SECRE
 
 Common patterns for using share links in practice:
 
-**After publish**: Deploy the portal with `/portal deploy`, then generate a share link if you want a direct hosted access URL instead of asking the client to log in with credentials.
+**After publish**: Deploy the portal with `/portal-deploy`, then generate a share link if you want a direct hosted access URL instead of asking the client to log in with credentials.
 
 **For quick reviews**: If a colleague or stakeholder needs to see the portal but should not have permanent credentials, a share link is ideal. It can be reused and does not create a full operator login.
 
-**Re-sharing after content update**: If you update portal content with `/portal update`, publish the latest version if needed, then generate a fresh share link and send it.
+**Re-sharing after content update**: If you update portal content with `/portal-update`, publish the latest version if needed, then generate a fresh share link and send it.
 
 ## Learnings Integration
 
-After generating a share link, consider recording a learning entry if this is the first time sharing this portal. The learning helps other skills (like `/portal analytics`) provide better context:
+After generating a share link, consider recording a learning entry if this is the first time sharing this portal. The learning helps other skills (like `/portal-analytics`) provide better context:
 
 ```json
 {"skill":"portal-share","key":"share-event","insight":"whzan shared via link on 2026-04-07","confidence":10,"ts":"2026-04-07T14:30:00Z"}
@@ -236,15 +233,15 @@ Share links do not expire automatically in this version.
 
 The revocation mechanisms are:
 
-- rotate credentials with `/portal credentials <slug>`
-- deactivate the portal with `/portal delete <slug>`
+- rotate credentials with `/portal-credentials <slug>`
+- deactivate the portal with `/portal-delete <slug>`
 - rotate `AUTH_SECRET`
 
 ## Multiple Share Links
 
 Generating a new share link does not invalidate the previous one. Both links remain valid until credentials are rotated, the portal is deactivated, or AUTH_SECRET changes. This means the user can safely generate multiple links for the same portal (e.g., one for the client contact, one for their colleague) without affecting each other.
 
-If the user wants to revoke all outstanding share links immediately, the mechanism is credential rotation: `/portal credentials <slug>`. This bumps the credential version, which invalidates all tokens signed against the previous version.
+If the user wants to revoke all outstanding share links immediately, the mechanism is credential rotation: `/portal-credentials <slug>`. This bumps the credential version, which invalidates all tokens signed against the previous version.
 
 ## Completion
 

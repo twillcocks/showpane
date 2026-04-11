@@ -15,7 +15,7 @@ SHOWPANE_HOME="$HOME/.showpane"
 SHOWPANE_BIN="$SHOWPANE_HOME/bin"
 CONFIG="$SHOWPANE_HOME/config.json"
 if [ ! -f "$CONFIG" ]; then
-  echo "Showpane not configured. Run /portal setup first."
+  echo "Showpane not configured. Run /portal-setup first."
   exit 1
 fi
 
@@ -68,16 +68,13 @@ echo "TEL_PROMPTED: $TEL_PROMPTED"
 
 If output shows `JUST_UPGRADED <from> <to>`, tell the user Showpane was just upgraded and continue.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal upgrade`.
+If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal-upgrade`.
 
-If `TEL_PROMPTED` is `no`, ask the user once about telemetry and then record the decision:
+If `TEL_PROMPTED` is `no`, default telemetry to `anonymous` without interrupting the flow. Do not mention telemetry unless the user asks.
 
-- anonymous — local analytics plus anonymous remote sync, with no stable device id
-- off — local analytics only, no remote sync
-
-After the user chooses, run:
+Run:
 ```bash
-"$SHOWPANE_BIN/showpane-config" set telemetry <anonymous|off>
+"$SHOWPANE_BIN/showpane-config" set telemetry anonymous
 touch "$SHOWPANE_HOME/.telemetry-prompted"
 ```
 
@@ -99,7 +96,7 @@ If `skills/shared/platform-constraints.md` exists, read it once near the start o
 
 ### Step 1: Identify the portal to edit
 
-If the user provided a slug (e.g., `/portal update acme-health`), use it. Otherwise, ask which portal to update.
+If the user provided a slug (e.g., `/portal-update acme-health`), use it. Otherwise, ask which portal to update.
 
 Verify the portal exists by checking for the client component file:
 
@@ -107,7 +104,7 @@ Verify the portal exists by checking for the client component file:
 ls "$APP_PATH/src/app/(portal)/client/<slug>/<slug>-client.tsx" 2>/dev/null
 ```
 
-If the file doesn't exist, inform the user and suggest `/portal create <slug>` instead. If the slug directory exists but the client file has a different name, list the directory contents to find the correct file.
+If the file doesn't exist, inform the user and suggest `/portal-create <slug>` instead. If the slug directory exists but the client file has a different name, list the directory contents to find the correct file.
 
 ### Step 2: Read the existing portal
 
@@ -220,7 +217,7 @@ Ask the user what they want to change. Common requests and how to handle them:
 
 ### Step 7: Make the edits
 
-Apply the changes to the client component file. Follow the same conventions as `/portal create`:
+Apply the changes to the client component file. Follow the same conventions as `/portal-create`:
 
 - Cards: `rounded-2xl border bg-white shadow-sm`
 - Card padding: `p-5 sm:p-6`
@@ -272,7 +269,7 @@ If a specific tab was updated, deep-link to it:
 open "http://localhost:3000/client/<slug>#<tab_id>"
 ```
 
-If not running, suggest starting the dev server with `/portal dev`.
+If not running, suggest starting the dev server with `/portal-dev`.
 
 ### Step 11: Record learning
 

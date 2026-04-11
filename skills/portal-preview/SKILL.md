@@ -15,7 +15,7 @@ SHOWPANE_HOME="$HOME/.showpane"
 SHOWPANE_BIN="$SHOWPANE_HOME/bin"
 CONFIG="$SHOWPANE_HOME/config.json"
 if [ ! -f "$CONFIG" ]; then
-  echo "Showpane not configured. Run /portal setup first."
+  echo "Showpane not configured. Run /portal-setup first."
   exit 1
 fi
 
@@ -68,16 +68,13 @@ echo "TEL_PROMPTED: $TEL_PROMPTED"
 
 If output shows `JUST_UPGRADED <from> <to>`, tell the user Showpane was just upgraded and continue.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal upgrade`.
+If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal-upgrade`.
 
-If `TEL_PROMPTED` is `no`, ask the user once about telemetry and then record the decision:
+If `TEL_PROMPTED` is `no`, default telemetry to `anonymous` without interrupting the flow. Do not mention telemetry unless the user asks.
 
-- anonymous — local analytics plus anonymous remote sync, with no stable device id
-- off — local analytics only, no remote sync
-
-After the user chooses, run:
+Run:
 ```bash
-"$SHOWPANE_BIN/showpane-config" set telemetry <anonymous|off>
+"$SHOWPANE_BIN/showpane-config" set telemetry anonymous
 touch "$SHOWPANE_HOME/.telemetry-prompted"
 ```
 
@@ -109,8 +106,8 @@ If the user specified a slug (e.g., "preview whzan"), use that slug directly.
 
 If no slug is provided, check how many portals exist:
 - If there is exactly one portal, use that one and mention it: "Opening your only portal: <slug>"
-- If there are multiple portals, ask: "Which portal do you want to preview? Run /portal list to see your portals."
-- If there are zero portals, say: "No portals found. Create one first with /portal create."
+- If there are multiple portals, ask: "Which portal do you want to preview? Run /portal-list to see your portals."
+- If there are zero portals, say: "No portals found. Create one first with /portal-create."
 
 For single-portal organizations, auto-selecting saves a round trip.
 
@@ -142,7 +139,7 @@ This handles deployed URLs, custom domains, and any other public preview target.
 
 If no server is detected and no app URL is configured, do not open the browser. Instead, inform the user:
 
-"No running server detected. Start the dev server with /portal dev, or set NEXT_PUBLIC_APP_URL in your .env file."
+"No running server detected. Start the dev server with /portal-dev, or set NEXT_PUBLIC_APP_URL in your .env file."
 
 ### Step 3: Open the URL in the browser
 
@@ -180,7 +177,7 @@ URL: http://localhost:3000/client/<slug>
 ```
 
 If the portal has credentials set up, remind the user:
-"Login with the credentials from /portal credentials <slug>. For external access, publish first with /portal deploy."
+"Login with the credentials from /portal-credentials <slug>. For external access, publish first with /portal-deploy."
 
 If the portal is the example portal (slug is "example"), no credentials are needed -- it is publicly accessible by design.
 
@@ -207,7 +204,7 @@ This order ensures that during development, the user always sees the latest loca
 - **Port conflict**: If port 3000 has a non-Showpane process running, `lsof` will still detect it and the URL will be wrong. This is unlikely in practice but worth noting. The user will see a different app in the browser and can correct by specifying the URL manually.
 - **WSL (Windows Subsystem for Linux)**: `xdg-open` may not work. On WSL, use `wslview` or `explorer.exe` instead. Detect WSL via `grep -qi microsoft /proc/version`.
 - **SSH/remote session**: If the user is connected via SSH, opening a browser on the remote machine does nothing useful. Detect this via the `SSH_CONNECTION` environment variable and print the URL instead: "You appear to be in an SSH session. Visit this URL on your local machine: <url>"
-- **Inactive portal**: If the portal is deactivated (`isActive: false`), the preview will show a "not found" page. Warn the user: "Portal '<slug>' is inactive. You'll see a not-found page. Reactivate it first or use /portal list to check status."
+- **Inactive portal**: If the portal is deactivated (`isActive: false`), the preview will show a "not found" page. Warn the user: "Portal '<slug>' is inactive. You'll see a not-found page. Reactivate it first or use /portal-list to check status."
 
 ## Error Handling
 
@@ -219,21 +216,21 @@ This order ensures that during development, the user always sees the latest loca
 
 When the portal opens in the browser, the client will see a login page (unless they have an active session or use a share link). Provide context about how to access the portal:
 
-- **Has credentials**: Remind the user of the username (derived from the slug). Do not display the password -- they can get it from `/portal credentials <slug>` if they need it.
-- **No credentials**: Warn that the portal will show a login page but there are no credentials to enter. Suggest running `/portal credentials <slug>` first.
+- **Has credentials**: Remind the user of the username (derived from the slug). Do not display the password -- they can get it from `/portal-credentials <slug>` if they need it.
+- **No credentials**: Warn that the portal will show a login page but there are no credentials to enter. Suggest running `/portal-credentials <slug>` first.
 - **Example portal**: The built-in example at `/client/example` is publicly accessible and does not require login. No credentials needed.
 
-If the user is previewing to check content before sharing with a client, suggest: "To see exactly what the client will see, open an incognito/private window. Your existing session cookies may affect the view. When the portal looks right, publish it with /portal deploy before sending anything externally."
+If the user is previewing to check content before sharing with a client, suggest: "To see exactly what the client will see, open an incognito/private window. Your existing session cookies may affect the view. When the portal looks right, publish it with /portal-deploy before sending anything externally."
 
 ## Previewing After Changes
 
-A common workflow is: edit portal content with `/portal update`, then preview to verify. If the dev server is running with Next.js hot reload, changes to the client component files will appear immediately without a page refresh.
+A common workflow is: edit portal content with `/portal-update`, then preview to verify. If the dev server is running with Next.js hot reload, changes to the client component files will appear immediately without a page refresh.
 
-If the user just ran `/portal update` and then `/portal preview`, mention: "If you don't see your changes, make sure the dev server is running so hot reload can pick them up."
+If the user just ran `/portal-update` and then `/portal-preview`, mention: "If you don't see your changes, make sure the dev server is running so hot reload can pick them up."
 
 ## Multiple Portals Preview
 
-If the user asks to "preview all portals" or "open all my portals", open each one in a separate browser tab. However, limit to 5 tabs maximum to avoid browser overload. If there are more than 5 portals, open the 5 most recently updated and note: "Opened the 5 most recently updated portals. Use /portal preview <slug> for specific portals."
+If the user asks to "preview all portals" or "open all my portals", open each one in a separate browser tab. However, limit to 5 tabs maximum to avoid browser overload. If there are more than 5 portals, open the 5 most recently updated and note: "Opened the 5 most recently updated portals. Use /portal-preview <slug> for specific portals."
 
 To open multiple tabs, run the open command for each URL sequentially:
 

@@ -20,7 +20,7 @@ SHOWPANE_HOME="$HOME/.showpane"
 SHOWPANE_BIN="$SHOWPANE_HOME/bin"
 CONFIG="$SHOWPANE_HOME/config.json"
 if [ ! -f "$CONFIG" ]; then
-  echo "Showpane not configured. Run /portal setup first."
+  echo "Showpane not configured. Run /portal-setup first."
   exit 1
 fi
 
@@ -73,16 +73,13 @@ echo "TEL_PROMPTED: $TEL_PROMPTED"
 
 If output shows `JUST_UPGRADED <from> <to>`, tell the user Showpane was just upgraded and continue.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal upgrade`.
+If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal-upgrade`.
 
-If `TEL_PROMPTED` is `no`, ask the user once about telemetry and then record the decision:
+If `TEL_PROMPTED` is `no`, default telemetry to `anonymous` without interrupting the flow. Do not mention telemetry unless the user asks.
 
-- anonymous — local analytics plus anonymous remote sync, with no stable device id
-- off — local analytics only, no remote sync
-
-After the user chooses, run:
+Run:
 ```bash
-"$SHOWPANE_BIN/showpane-config" set telemetry <anonymous|off>
+"$SHOWPANE_BIN/showpane-config" set telemetry anonymous
 touch "$SHOWPANE_HOME/.telemetry-prompted"
 ```
 
@@ -104,7 +101,7 @@ If `skills/shared/platform-constraints.md` exists, read it once near the start o
 
 ### Step 1: Determine the portal slug
 
-If the user provided a slug (e.g., `/portal create acme-health`), use it. Otherwise, infer from context — the company name mentioned in conversation, a meeting transcript, or ask the user directly.
+If the user provided a slug (e.g., `/portal-create acme-health`), use it. Otherwise, infer from context — the company name mentioned in conversation, a meeting transcript, or ask the user directly.
 
 Validate the slug by running:
 
@@ -145,7 +142,7 @@ Never fail or block because Granola is unavailable. It is purely additive.
 ### Step 3: Template selection
 
 Ask which template to use as a starting point. Keep this brief and practical —
-the user chose `/portal create` because they want the fast path, not a wizard.
+the user chose `/portal-create` because they want the fast path, not a wizard.
 
 1. **sales-followup** — Meeting notes, next steps, documents. Best after a sales call.
 2. **consulting** — Project overview, deliverables, timeline. Best for ongoing engagements.
@@ -286,7 +283,7 @@ Run the create-portal script to register the portal in the database:
 cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/create-portal.ts" --slug <slug> --company "<client_company_name>" --org-id <org_id>
 ```
 
-This creates the `ClientPortal` record with the slug, company name, and links it to the Organization. It does NOT create credentials — that is a separate step via `/portal credentials`.
+This creates the `ClientPortal` record with the slug, company name, and links it to the Organization. It does NOT create credentials — that is a separate step via `/portal-credentials`.
 
 ### Step 7: Self-review
 
@@ -319,7 +316,7 @@ open "http://localhost:3000/client/<slug>"
 
 If not running, suggest:
 
-> "Start the dev server with `/portal dev` to preview your portal at http://localhost:3000/client/<slug>"
+> "Start the dev server with `/portal-dev` to preview your portal at http://localhost:3000/client/<slug>"
 
 ### Step 9: Summary and next steps
 
@@ -334,10 +331,10 @@ Portal created: <slug>
              src/app/(portal)/client/<slug>/<slug>-client.tsx
 
 Next steps:
-  1. Create login credentials: /portal credentials <slug>
-  2. Preview the portal:       /portal preview <slug>
-  3. Edit content:             /portal update <slug>
-  4. Deploy:                   /portal deploy
+  1. Create login credentials: /portal-credentials <slug>
+  2. Preview the portal:       /portal-preview <slug>
+  3. Edit content:             /portal-update <slug>
+  4. Deploy:                   /portal-deploy
 ```
 
 ### Step 10: Record learning

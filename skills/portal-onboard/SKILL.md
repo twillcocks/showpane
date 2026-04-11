@@ -83,16 +83,13 @@ fi
 
 If output shows `JUST_UPGRADED <from> <to>`, tell the user Showpane was just upgraded and continue.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal upgrade`.
+If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal-upgrade`.
 
-If `TEL_PROMPTED` is `no`, ask the user once about telemetry and then record the decision:
+If `TEL_PROMPTED` is `no`, default telemetry to `anonymous` without interrupting the flow. Do not mention telemetry unless the user asks.
 
-- anonymous — local analytics plus anonymous remote sync, with no stable device id
-- off — local analytics only, no remote sync
-
-After the user chooses, run:
+Run:
 ```bash
-"$SHOWPANE_BIN/showpane-config" set telemetry <anonymous|off>
+"$SHOWPANE_BIN/showpane-config" set telemetry anonymous
 touch "$SHOWPANE_HOME/.telemetry-prompted"
 ```
 
@@ -112,7 +109,7 @@ If `skills/shared/platform-constraints.md` exists, read it once near the start o
 
 ## Overview
 
-`/portal onboard` is the canonical first-run workflow. It should feel like one
+`/portal-onboard` is the canonical first-run workflow. It should feel like one
 coherent wizard, not like the user is manually hopping between separate skills.
 
 The recommended shape is:
@@ -169,15 +166,14 @@ Start with a compact welcome:
  ╚══════════════════════════════════════════╝
 ```
 
-Then explain the flow in plain language:
+Then use one short, friendly paragraph. Keep it concise and informal.
 
-- local setup if needed
-- first draft
-- local preview
-- access setup
-- cloud publish
+Suggested shape:
 
-Do not lead with prompt examples. This skill is the first-run default.
+- "Let's get your first portal started."
+- "Who's it for, and what's the context? If you've got a call transcript, paste it in and I'll use that too."
+
+Keep the opening focused on the user's first portal. This skill is the first-run default, so the top of the flow should feel fast, calm, and immediately useful.
 
 Immediately save checkpoint:
 
@@ -197,15 +193,28 @@ If config exists, verify only the minimum first-run requirements before continui
 - local SQLite schema is ready
 - org exists or can be created
 
-Keep this phase minimal. For first-run onboarding, collect only the minimum
-company context needed to make the first portal feel real:
+Keep this phase minimal.
 
-- organization name
-- contact email
-- website/domain if available
+If the local checks pass, move straight into the user's portal work without extra system narration.
+
+If there is already exactly one local organization and it clearly matches the
+workspace the user just created, treat the org basics as already captured.
+Do not create a separate "company context" phase just to re-ask the same setup
+details.
+
+Only ask for a missing field, and ask exactly one thing at a time.
+
+Recommended order for missing fields:
+
+1. organization name, if it is not already obvious from the workspace setup
+2. contact email
+3. website/domain
+
+Do not batch these into a numbered questionnaire unless the user explicitly asks
+for the full checklist.
 
 Optional extras like brand color, phone number, or contact title belong in
-`/portal setup` later if needed.
+`/portal-setup` later if needed.
 
 If setup fails, stop with a concrete recovery step and keep the checkpoint.
 
@@ -213,9 +222,20 @@ Save checkpoint with phase `local-ready`.
 
 ### Phase 3: Choose the first-portal source
 
-Recommended order:
+Start with one short source question, not a menu.
 
-1. recent Granola meeting if available
+Recommended opening:
+
+- "Who's it for, and what's the context? If you've got a call transcript, paste it in and I'll use that too."
+
+Only branch after the user answers:
+
+- if they have a real transcript, ask whether to use Granola or paste it
+- if they do not, ask whether they want to start from notes or a template
+
+Only show the full menu if the user is unsure:
+
+1. recent Granola meeting
 2. pasted transcript
 3. short description of the client + meeting outcome
 4. template-only start
@@ -260,7 +280,7 @@ Recommended refinement prompts:
 - `Do you want the portal to feel more concise, more sales-focused, or more delivery-focused?`
 - `Should we add anything practical before preview — timeline, documents, or sharper next steps?`
 
-Apply the requested refinement inline, using the same patterns as `/portal update`
+Apply the requested refinement inline, using the same patterns as `/portal-update`
 without forcing the user to switch skills.
 
 If the user is happy with the first draft, move on immediately.
@@ -353,8 +373,8 @@ Show a compact final reference card:
   Cloud:  <hosted-url-or-publishing-status>
   Access: <hosted login / hosted share link / both>
 
-  Next: /portal update <slug>
-  Help: /portal list, /portal status
+  Next: /portal-update <slug>
+  Help: /portal-list, /portal-status
 ════════════════════════════════════════
 ```
 
@@ -409,10 +429,10 @@ to continue refining it or create a new portal. Recommend continuing unless the 
 - Missing config is not a preamble failure here. It simply means setup starts from scratch.
 - If a step fails after useful progress, keep the checkpoint and tell the user exactly how to resume.
 - If the user wants to stop early, summarize the current state and point them to the next concrete skill:
-  - `/portal preview`
-  - `/portal credentials`
-  - `/portal share`
-  - `/portal deploy`
+  - `/portal-preview`
+  - `/portal-credentials`
+  - `/portal-share`
+  - `/portal-deploy`
 
 ## Completion
 

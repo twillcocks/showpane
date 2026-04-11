@@ -25,7 +25,7 @@
 ### Changed — First Portal Onboarding
 - **Local welcome page refresh** — localhost onboarding now focuses on one Claude start command, two strong first-portal prompt examples, and a direct guide CTA instead of a numbered setup stack
 - **Canonical first-portal guide** — public docs now center on `app.showpane.com/docs/first-portal` with transcript patterns, best practices, common mistakes, and a walkthrough slot
-- **Early portal guidance nudge** — `/portal create` now points first-time users to the guide for the first three org-scoped portal creations, then stays quiet after that
+- **Early portal guidance nudge** — `/portal-create` now points first-time users to the guide for the first three org-scoped portal creations, then stays quiet after that
 
 ## 0.2.0 (2026-04-08)
 
@@ -68,7 +68,7 @@
 - SQLite support for local development (zero config)
 - Auto-branding: fetch logos from Clearbit, avatars from Gravatar
 - Granola MCP integration for meeting transcripts
-- Cloud deployment path in `/portal deploy` (coming soon)
+- Cloud deployment path in `/portal-deploy` (coming soon)
 - GitHub Actions CI/CD for npm publishing
 - DESIGN.md design system documentation
 

@@ -330,7 +330,6 @@ async function main() {
     "Showpane is ready",
     "Project:",
     "App:",
-    "Demo:",
     "Next (in a new terminal window):",
     "Your current terminal is running the local app logs",
     "Try:",

@@ -73,16 +73,13 @@ echo "TEL_PROMPTED: $TEL_PROMPTED"
 
 If output shows `JUST_UPGRADED <from> <to>`, tell the user Showpane was just upgraded and continue.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal upgrade`.
+If output shows `UPGRADE_AVAILABLE <old> <new>`, tell the user a newer Showpane toolchain is available and recommend `/portal-upgrade`.
 
-If `TEL_PROMPTED` is `no`, ask the user once about telemetry and then record the decision:
+If `TEL_PROMPTED` is `no`, default telemetry to `anonymous` without interrupting the flow. Do not mention telemetry unless the user asks.
 
-- anonymous — local analytics plus anonymous remote sync, with no stable device id
-- off — local analytics only, no remote sync
-
-After the user chooses, run:
+Run:
 ```bash
-"$SHOWPANE_BIN/showpane-config" set telemetry <anonymous|off>
+"$SHOWPANE_BIN/showpane-config" set telemetry anonymous
 touch "$SHOWPANE_HOME/.telemetry-prompted"
 ```
 
@@ -140,7 +137,7 @@ When the user is inside a freshly generated Showpane project, the setup should:
 - Prefer the current working directory as `APP_PATH`
 - Skip any suggestion to clone the upstream Showpane repository
 - Auto-detect SQLite from DATABASE_URL (if it starts with "file:" it's SQLite)
-- Still ask for org name, contact details, and website URL
+- Reuse the existing workspace org name if it is already obvious, then ask for the next missing contact detail one at a time
 - Be concise — the user just ran `npx showpane` and wants to get going fast
 
 ### Step 3: Set the workspace mode
@@ -190,12 +187,17 @@ Do NOT proceed until the local schema is applied successfully.
 
 Ask the user for their organization details one at a time. Do not present all questions at once — guide them through the process conversationally.
 
-1. **Organization name** (required) — e.g., "Acme Consulting". This is the name that appears in portal headers alongside the client name.
+Before asking anything, check the local database. If there is already exactly one organization and it clearly matches the workspace the user just created, keep it as the default and do not ask for the organization name again unless the user wants to change it.
+
+If the org already exists with a real name, ask only for the next missing field.
+Do not restart the whole org questionnaire from the top.
+
+1. **Organization name** (required only if not already known) — e.g., "Acme Consulting". This is the name that appears in portal headers alongside the client name.
 2. **Contact name** (required) — the person who appears on portal footers as the point of contact, e.g., "Jane Smith". This is typically the account manager or sales rep.
 3. **Contact email** (required) — e.g., "jane@acme.com". Displayed in the portal footer as a mailto link.
 4. **Contact title** (optional, default: "Account Manager") — e.g., "Director", "Partner", "Client Success Lead". Shown next to the contact name in the portal footer.
 5. **Contact phone** (optional) — e.g., "+44 7700 900000". If provided, displayed alongside email in the portal footer.
-6. **Company website URL** (optional) — e.g., "acme.com". Used to auto-fetch the company logo via Clearbit.
+6. **Company website URL** — e.g., "acme.com". Ask for it plainly instead of framing it as optional. Used to auto-fetch the company logo via Clearbit.
    - If provided, fetch logo URL: `https://logo.clearbit.com/{domain}` and store in `Organization.logoUrl`
    - Also store the URL in `Organization.websiteUrl`
 7. **Contact avatar**: Auto-populated from the contact email via Gravatar. No need to ask — just use `getAvatarUrl(email, contactName)` from `app/src/lib/branding.ts` and store in `Organization.contactAvatar`
@@ -227,7 +229,7 @@ Validate the input is a valid hex color:
 
 Update the Organization record with `primaryColor` set to the validated hex value. The portal app reads this value and applies it via CSS custom properties (the `--primary` variable in the Tailwind theme).
 
-If the user says "skip" or "default", use `#1a1a1a`. Brand color can always be changed later by running `/portal setup` again.
+If the user says "skip" or "default", use `#1a1a1a`. Brand color can always be changed later by running `/portal-setup` again.
 
 ### Step 8: Telemetry reminder
 
@@ -279,8 +281,8 @@ Showpane setup complete!
   Telemetry:    anonymous
 
 Next steps:
-  1. Recommended first run:    /portal onboard
-  2. Fast repeat-user path:    /portal create <slug>
+  1. Recommended first run:    /portal-onboard
+  2. Fast repeat-user path:    /portal-create <slug>
   3. View the example portal:  open http://localhost:3000/client/example
 ```
 

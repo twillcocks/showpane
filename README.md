@@ -20,7 +20,7 @@ claude
 Then in Claude Code, the recommended first-run path is:
 
 ```
-/portal onboard
+/portal-onboard
 ```
 
 Manual prompting still works if you already know what you want:
@@ -44,7 +44,7 @@ npx showpane
 Hosted at `orgname.showpane.com` with engagement intelligence.
 
 ```
-claude /portal deploy
+claude /portal-deploy
 ```
 
 **Cloud includes:** Real-time activity feed, visitor tracking, per-section time analytics, email alerts, team access (multiple operators), 1-year analytics retention.
@@ -56,20 +56,20 @@ The local app builds the portal, then Showpane Cloud publishes it on your behalf
 
 | Command | Description |
 |---------|-------------|
-| `/portal onboard` | Guided first-run experience |
-| `/portal create <slug>` | Scaffold a new portal (supports Granola transcripts) |
-| `/portal update <slug>` | Edit portal content via natural language |
-| `/portal credentials <slug>` | Create or rotate login credentials |
-| `/portal deploy` | Publish to Showpane Cloud |
-| `/portal dev` | Start local dev server |
-| `/portal preview [slug]` | Open portal in browser |
-| `/portal analytics [slug]` | View engagement data |
-| `/portal share <slug>` | Generate a reusable share link |
-| `/portal list` | List all portals |
-| `/portal status` | Dashboard with health scores |
-| `/portal delete <slug>` | Deactivate a portal |
-| `/portal setup` | Interactive setup wizard |
-| `/portal upgrade` | Update to latest version |
+| `/portal-onboard` | Guided first-run experience |
+| `/portal-create <slug>` | Scaffold a new portal (supports Granola transcripts) |
+| `/portal-update <slug>` | Edit portal content via natural language |
+| `/portal-credentials <slug>` | Create or rotate login credentials |
+| `/portal-deploy` | Publish to Showpane Cloud |
+| `/portal-dev` | Start local dev server |
+| `/portal-preview [slug]` | Open portal in browser |
+| `/portal-analytics [slug]` | View engagement data |
+| `/portal-share <slug>` | Generate a reusable share link |
+| `/portal-list` | List all portals |
+| `/portal-status` | Dashboard with health scores |
+| `/portal-delete <slug>` | Deactivate a portal |
+| `/portal-setup` | Interactive setup wizard |
+| `/portal-upgrade` | Update to latest version |
 
 ## Templates
 
@@ -79,7 +79,7 @@ Three portal templates for common use cases:
 - **Consulting** — Project overview, deliverables, timeline
 - **Onboarding** — Welcome, setup checklist, resources
 
-Templates are reference implementations. `/portal create` reads them for inspiration and generates bespoke content tailored to each client.
+Templates are reference implementations. `/portal-create` reads them for inspiration and generates bespoke content tailored to each client.
 
 ## Development (Repo)
 

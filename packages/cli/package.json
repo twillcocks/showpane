@@ -1,10 +1,10 @@
 {
   "name": "showpane",
-  "version": "0.4.15",
+  "version": "0.4.16",
   "description": "CLI for Showpane — AI-generated client portals",
   "type": "module",
   "bin": {
-    "showpane": "./dist/index.js"
+    "showpane": "dist/index.js"
   },
   "files": [
     "dist",
@@ -33,7 +33,7 @@
   "license": "AGPL-3.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/twillcocks/showpane.git",
+    "url": "git+https://github.com/twillcocks/showpane.git",
     "directory": "packages/cli"
   },
   "homepage": "https://showpane.com",

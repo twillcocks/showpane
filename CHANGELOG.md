@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.8 (2026-04-12)
+
+### Fixed — Portal Create Handoff
+- **Stricter create-flow contract** — `portal-create` now has an explicit canonical org lookup step, requires `--org-id` in the documented slug-validation path, and points directly at the selected toolchain template file instead of leaving room for repo spelunking or ad-hoc command guessing
+- **CLI authorize sign-in redirect fixed** — `showpane-cloud` now bounces signed-out users from `/cli/authorize` through sign-in/sign-up and back to the code entry page instead of letting them hit an `Unauthorized` dead end
+- **Portal-aware local login redirect** — local auth redirects now preserve the requested portal slug so the shared login route can render portal-specific context instead of losing the target portal immediately
+
 ## 0.2.7 (2026-04-12)
 
 ### Fixed — First-Run Handoffs

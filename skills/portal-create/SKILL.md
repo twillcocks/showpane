@@ -133,7 +133,10 @@ If the helper fails, stop and tell the user to run `/portal-setup` again instead
 of guessing with ad-hoc SQL.
 
 Do not probe `showpane --help`, `package.json`, `scripts/`, `prisma/`, or template
-directories just to understand the project. The canonical references for this skill are:
+directories just to understand the project. Do not call `check-slug.ts` with
+anything except `--org-id`.
+
+The canonical references for this skill are:
 
 - the configured `APP_PATH`
 - the configured `ORG_SLUG`
@@ -191,10 +194,10 @@ the user chose `/portal-create` because they want the fast path, not a wizard.
 3. **onboarding** — Welcome, setup steps, resources. Best for new client onboarding.
 4. **blank** — Start from scratch with just an overview tab.
 
-Read the chosen template file from `$SKILL_DIR/templates/` for structural inspiration:
+Read the chosen template file from the exact toolchain path for structural inspiration:
 
 ```bash
-cat "$SKILL_DIR/templates/sales-followup/sales-followup-client.tsx"
+cat "$SKILL_DIR/templates/<chosen-template>/<chosen-template>-client.tsx"
 ```
 
 Always also read the example portal as your quality and style reference:
@@ -204,6 +207,9 @@ cat "$APP_PATH/src/app/(portal)/client/example/example-client.tsx"
 ```
 
 The template provides content structure. The example provides quality and styling. Match the example's patterns: card styles, typography, spacing, responsive breakpoints. Templates are inspiration, not rigid scaffolds. Adapt the structure to fit the actual content.
+
+Do not search the repo for templates or ask the filesystem where templates live.
+Use the selected template and the exact `SKILL_DIR` path above.
 
 ### Step 5: Analyze transcript (if available)
 

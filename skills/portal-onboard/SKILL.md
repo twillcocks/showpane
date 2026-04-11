@@ -67,17 +67,13 @@ SHOWPANE_TIMELINE="$SHOWPANE_HOME/timeline.jsonl"
 mkdir -p "$(dirname "$SHOWPANE_TIMELINE")"
 echo '{"skill":"portal-onboard","event":"started","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> "$SHOWPANE_TIMELINE" 2>/dev/null
 echo "SHOWPANE: v$SKILL_VERSION | MODE: $DEPLOY_MODE"
-echo "CONFIG_PRESENT: $CONFIG_PRESENT"
-echo "APP_PATH: ${APP_PATH:-missing}"
-echo "ORG_SLUG: ${ORG_SLUG:-missing}"
-echo "TELEMETRY: $TEL"
-echo "TEL_PROMPTED: $TEL_PROMPTED"
+echo "WORKSPACE: ${APP_PATH:+ready}${APP_PATH:-missing}"
+echo "ORG: ${ORG_SLUG:-missing}"
 if [ -f "$CHECKPOINT" ]; then
-  echo "CHECKPOINT_PRESENT: true"
-  echo "CHECKPOINT_DATA:"
+  echo "CHECKPOINT: present"
   cat "$CHECKPOINT"
 else
-  echo "CHECKPOINT_PRESENT: false"
+  echo "CHECKPOINT: missing"
 fi
 ```
 
@@ -256,12 +252,33 @@ Save checkpoint with:
 Run the `portal-create` flow inline, but frame it as part of the wizard, not as
 a separate command.
 
+Before you do, resolve the local organization with the canonical helper and keep
+that result in hand:
+
+```bash
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/get-org.ts" --slug "$ORG_SLUG"
+```
+
+Use the returned `org.id` as the canonical org id for the rest of the create flow.
+Do not guess schema fields or discover the org via ad-hoc SQLite queries if this helper succeeds.
+
+Also: do not probe `showpane --help`, `package.json`, `scripts/`, `prisma/`, or
+template directories just to reorient yourself. At this point the canonical inputs
+are already known:
+
+- workspace app path
+- org slug
+- selected client company name
+- selected template
+- optional transcript source
+
 During this phase:
 
 - suggest a slug if needed
 - prefer a real company/client name in the portal
 - prefer useful structure over completeness
 - aim for a credible first draft, not a perfect final artifact
+- do not re-ask for the company name or template if the user already chose them
 
 If the slug is taken, treat that as a soft retry, not a failure.
 
@@ -293,6 +310,16 @@ Run the `portal-preview` flow inline.
 
 If no dev server is running, start it using the `portal-dev` instructions first.
 
+If the create step already generated local credentials, show them before opening
+the preview link. Keep it simple:
+
+- username
+- password
+- one sentence saying these are for local preview right now
+
+Do this before opening the browser so the user is not dropped onto a login screen
+without the credentials they need.
+
 Tell the user exactly what to inspect:
 
 - does the overall story feel right?
@@ -316,10 +343,14 @@ Recommended first-run choice:
 Important rule: share links still require portal credentials to exist, because
 share links are tied to credential versioning.
 
+The `create-portal` flow currently creates initial credentials automatically. If
+you already have a generated username/password from that step, do not immediately
+re-run `portal-credentials` unless the user wants to rotate or replace them.
+
 So the flow is:
 
-1. run `portal-credentials` inline
-2. show the credentials once
+1. if credentials were already generated during create, show them once here
+2. if credentials do not exist or need changing, run `portal-credentials` inline
 3. explain that external sharing starts with `portal-deploy`
 4. if the user wants a direct hosted access link after publish, plan to run `portal-share`
 

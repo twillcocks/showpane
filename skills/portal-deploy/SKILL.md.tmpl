@@ -28,12 +28,26 @@ Check that the preamble successfully read cloud config values:
 
 ```bash
 if [ -z "$CLOUD_API_TOKEN" ]; then
-  echo "ERROR: No API token found. Run 'showpane login' to authenticate."
+  echo "ERROR: No cloud access token found. Run 'showpane login' to authenticate."
   exit 1
 fi
 ```
 
-If the token is missing, stop and tell the user to run `showpane login`.
+If the token is missing, stop and tell the user:
+
+- `showpane login` is the right next step
+- it opens browser auth for Showpane Cloud automatically
+- if they need an account first:
+  - sign up: `https://app.showpane.com/sign-up`
+  - sign in: `https://app.showpane.com/sign-in`
+
+If they are already inside Claude Code, explicitly suggest:
+
+```text
+! showpane login
+```
+
+Then resume deploy after login finishes.
 
 #### 1b. Verify Showpane Cloud is reachable
 

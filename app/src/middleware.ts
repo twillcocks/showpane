@@ -35,18 +35,28 @@ export async function middleware(req: NextRequest) {
     try {
       const portal = await getAuthenticatedPortal(req);
       if (!portal) {
-        return NextResponse.redirect(new URL("/client", req.url));
+        const loginUrl = new URL("/client", req.url);
+        const requestedSlug = pathname.split("/")[2];
+        if (requestedSlug) {
+          loginUrl.searchParams.set("portal", requestedSlug);
+        }
+        return NextResponse.redirect(loginUrl);
       }
       // Ensure the URL slug matches the authenticated slug
       const urlSlug = pathname.split("/")[2];
       if (urlSlug !== portal.slug) {
-        return NextResponse.redirect(new URL("/client", req.url));
+        return NextResponse.redirect(new URL(`/client/${portal.slug}`, req.url));
       }
       return NextResponse.next();
     } catch (e) {
       console.error("Middleware: DB error checking auth on portal page", e);
       // Fail closed — redirect to login
-      return NextResponse.redirect(new URL("/client", req.url));
+      const loginUrl = new URL("/client", req.url);
+      const requestedSlug = pathname.split("/")[2];
+      if (requestedSlug) {
+        loginUrl.searchParams.set("portal", requestedSlug);
+      }
+      return NextResponse.redirect(loginUrl);
     }
   }
 

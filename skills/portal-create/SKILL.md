@@ -27,6 +27,10 @@ fi
 APP_PATH=$("$SHOWPANE_BIN/showpane-config" get app_path 2>/dev/null || python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('app_path',''))" 2>/dev/null)
 DEPLOY_MODE=$("$SHOWPANE_BIN/showpane-config" get deploy_mode 2>/dev/null || python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('deploy_mode','local'))" 2>/dev/null || echo "local")
 ORG_SLUG=$("$SHOWPANE_BIN/showpane-config" get orgSlug 2>/dev/null || python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('orgSlug','') or d.get('org_slug',''))" 2>/dev/null || true)
+CLOUD_API_TOKEN=$("$SHOWPANE_BIN/showpane-config" get accessToken 2>/dev/null || python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('accessToken',''))" 2>/dev/null || true)
+CLOUD_API_BASE="${SHOWPANE_CLOUD_URL:-https://app.showpane.com}"
+CLOUD_ORG_SLUG="${ORG_SLUG:-}"
+CLOUD_PORTAL_URL=$("$SHOWPANE_BIN/showpane-config" get portalUrl 2>/dev/null || python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('portalUrl',''))" 2>/dev/null || true)
 APP_PATH="${SHOWPANE_APP_PATH:-$APP_PATH}"
 if [ -f "$APP_PATH/.env" ]; then set -a && source "$APP_PATH/.env" && set +a; fi
 DATABASE_URL="${DATABASE_URL:-}"
@@ -67,6 +71,13 @@ SHOWPANE_TIMELINE="$SHOWPANE_HOME/timeline.jsonl"
 mkdir -p "$(dirname "$SHOWPANE_TIMELINE")"
 echo '{"skill":"portal-create","event":"started","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> "$SHOWPANE_TIMELINE" 2>/dev/null
 echo "SHOWPANE: v$SKILL_VERSION | MODE: $DEPLOY_MODE | APP: $APP_PATH"
+if [ "portal-create" = "portal-deploy" ]; then
+  echo "ORG_SLUG: $ORG_SLUG"
+  echo "CLOUD_API_TOKEN: ${CLOUD_API_TOKEN:+present}${CLOUD_API_TOKEN:-missing}"
+  echo "CLOUD_API_BASE: ${CLOUD_API_BASE:-missing}"
+  echo "CLOUD_ORG_SLUG: ${CLOUD_ORG_SLUG:-missing}"
+  echo "CLOUD_PORTAL_URL: ${CLOUD_PORTAL_URL:-missing}"
+fi
 echo "TELEMETRY: $TEL"
 echo "TEL_PROMPTED: $TEL_PROMPTED"
 ```
@@ -99,14 +110,45 @@ If `skills/shared/platform-constraints.md` exists, read it once near the start o
 
 ## Steps
 
-### Step 1: Determine the portal slug
+### Step 1: Resolve the local organization
+
+Resolve the organization from the configured `ORG_SLUG` before doing anything else:
+
+```bash
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/get-org.ts" --slug "$ORG_SLUG"
+```
+
+The helper returns:
+
+```json
+{"ok":true,"org":{"id":"...","slug":"...","name":"..."}}
+```
+
+Store:
+
+- `ORG_ID`
+- `ORG_NAME`
+
+If the helper fails, stop and tell the user to run `/portal-setup` again instead
+of guessing with ad-hoc SQL.
+
+Do not probe `showpane --help`, `package.json`, `scripts/`, `prisma/`, or template
+directories just to understand the project. The canonical references for this skill are:
+
+- the configured `APP_PATH`
+- the configured `ORG_SLUG`
+- this skill file
+- `$SKILL_DIR/templates/<chosen-template>/...`
+- `$APP_PATH/src/app/(portal)/client/example/example-client.tsx`
+
+### Step 2: Determine the portal slug
 
 If the user provided a slug (e.g., `/portal-create acme-health`), use it. Otherwise, infer from context — the company name mentioned in conversation, a meeting transcript, or ask the user directly.
 
 Validate the slug by running:
 
 ```bash
-cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/check-slug.ts" --slug <slug> --org-id <org_id>
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/check-slug.ts" --slug <slug> --org-id "$ORG_ID"
 ```
 
 The script returns `{"valid":true}` or `{"valid":false,"reason":"...","message":"..."}`. If invalid:
@@ -120,7 +162,7 @@ Also ask for the client's website domain (e.g., "acme-health.com"). This is opti
 - If provided, the client logo will be fetched via `getLogoUrl(domain)` and stored in `ClientPortal.logoUrl`
 - If not provided, an initial-based logo is generated via `getInitialLogo(companyName)` and stored as a data URI
 
-### Step 2: Granola MCP integration (optional)
+### Step 3: Granola MCP integration (optional)
 
 Try to use the Granola MCP `list_meetings` tool to fetch recent meetings. This is a convenience, not a requirement.
 
@@ -139,7 +181,7 @@ Try to use the Granola MCP `list_meetings` tool to fetch recent meetings. This i
 
 Never fail or block because Granola is unavailable. It is purely additive.
 
-### Step 3: Template selection
+### Step 4: Template selection
 
 Ask which template to use as a starting point. Keep this brief and practical —
 the user chose `/portal-create` because they want the fast path, not a wizard.
@@ -163,7 +205,7 @@ cat "$APP_PATH/src/app/(portal)/client/example/example-client.tsx"
 
 The template provides content structure. The example provides quality and styling. Match the example's patterns: card styles, typography, spacing, responsive breakpoints. Templates are inspiration, not rigid scaffolds. Adapt the structure to fit the actual content.
 
-### Step 4: Analyze transcript (if available)
+### Step 5: Analyze transcript (if available)
 
 If a transcript was provided (from Granola or pasted), analyze it to extract:
 
@@ -189,7 +231,7 @@ Extract from the transcript:
 - **Mentioned documents** (for documents tab)
 - **Services or products discussed** (for services/overview content)
 
-### Step 5: Generate the portal files
+### Step 6: Generate the portal files
 
 Create two files in `$APP_PATH/src/app/(portal)/client/<slug>/`:
 
@@ -275,17 +317,22 @@ Import only the icons you need from `lucide-react`. Common choices:
 </details>
 ```
 
-### Step 6: Create database record
+### Step 7: Create database record
 
 Run the create-portal script to register the portal in the database:
 
 ```bash
-cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/create-portal.ts" --slug <slug> --company "<client_company_name>" --org-id <org_id>
+cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/create-portal.ts" --slug <slug> --company "<client_company_name>" --org-id "$ORG_ID"
 ```
 
-This creates the `ClientPortal` record with the slug, company name, and links it to the Organization. It does NOT create credentials — that is a separate step via `/portal-credentials`.
+This creates the `ClientPortal` record with the slug and company name, links it to
+the Organization, and currently auto-generates initial credentials. The script
+returns `username` and `password`.
 
-### Step 7: Self-review
+Do not dump those credentials into the middle of the flow unless the user asked.
+For onboarding, carry them forward quietly and show them at the access phase.
+
+### Step 8: Self-review
 
 After generating the files, read them back and verify:
 
@@ -300,7 +347,7 @@ After generating the files, read them back and verify:
 
 If any check fails, fix the issue before proceeding.
 
-### Step 8: Open preview
+### Step 9: Open preview
 
 Check if the dev server is running:
 
@@ -318,7 +365,7 @@ If not running, suggest:
 
 > "Start the dev server with `/portal-dev` to preview your portal at http://localhost:3000/client/<slug>"
 
-### Step 9: Summary and next steps
+### Step 10: Summary and next steps
 
 Print a summary:
 
@@ -331,13 +378,13 @@ Portal created: <slug>
              src/app/(portal)/client/<slug>/<slug>-client.tsx
 
 Next steps:
-  1. Create login credentials: /portal-credentials <slug>
-  2. Preview the portal:       /portal-preview <slug>
-  3. Edit content:             /portal-update <slug>
+  1. Preview the portal:       /portal-preview <slug>
+  2. Edit content:             /portal-update <slug>
+  3. Rotate credentials:       /portal-credentials <slug>
   4. Deploy:                   /portal-deploy
 ```
 
-### Step 10: Record learning
+### Step 11: Record learning
 
 Append a learning about the portal creation for future reference:
 

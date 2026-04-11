@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.7 (2026-04-12)
+
+### Fixed — First-Run Handoffs
+- **Portal onboarding no longer guesses local org context** — the guided first-run flow now has a canonical local org lookup path before portal creation, so Claude does not need to spelunk the repo or improvise ad-hoc SQLite queries just to continue the wizard
+- **Preview handoff is more coherent** — the onboarding flow now carries generated local credentials into preview and preserves the requested portal slug when auth redirects back to the shared login page
+- **Deploy auth guidance matches the real login flow** — `/portal-deploy` now treats `showpane login` and `~/.showpane/config.json` as the source of truth for cloud auth, and points signed-out users to the real Showpane Cloud sign-in/sign-up path
+- **Installer prompts tightened again** — first-run installer copy now asks for work email explicitly, uses the softer PATH prompt wording, and seeds a neutral `Point of contact` title instead of a misleading founder default
+
 ## 0.2.5 (2026-04-11)
 
 ### Changed — First-Run Onboarding

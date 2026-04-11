@@ -35,7 +35,7 @@ const BLUE = "\x1b[34m";
 const WHITE = "\x1b[37m";
 const RED = "\x1b[31m";
 
-const API_BASE = "https://app.showpane.com";
+const API_BASE = process.env.SHOWPANE_CLOUD_URL || "https://app.showpane.com";
 const ORGANIZATION_REQUIRED_ERROR = "organization_required";
 const ORGANIZATION_NOT_READY_ERROR = "organization_not_ready";
 const SHOWPANE_HOME = join(homedir(), ".showpane");
@@ -125,6 +125,9 @@ type UpgradePlan = {
 
 type CreateOptions = {
   companyName?: string;
+  contactName?: string;
+  contactEmail?: string;
+  websiteUrl?: string;
   noOpen: boolean;
   verbose: boolean;
   yes: boolean;
@@ -163,11 +166,11 @@ function error(message: string) {
 }
 
 function printCreateUsage() {
-  console.log("Usage: showpane [--yes --name <company>] [--no-open] [--verbose]");
+  console.log("Usage: showpane [--yes --name <company> --full-name <name> --work-email <email> [--website <domain>]] [--no-open] [--verbose]");
 }
 
 function printClaudeUsage() {
-  console.log("Usage: showpane claude [--project <name-or-path>] [--yes --name <company>] [--verbose]");
+  console.log("Usage: showpane claude [--project <name-or-path>] [--yes --name <company> --full-name <name> --work-email <email> [--website <domain>]] [--verbose]");
 }
 
 function printBanner() {
@@ -232,11 +235,41 @@ function parseCreateArgs(args: string[]): CreateOptions {
       continue;
     }
 
+    if (arg === "--full-name") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Missing value for --full-name.");
+      }
+      options.contactName = value.trim();
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--work-email") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Missing value for --work-email.");
+      }
+      options.contactEmail = value.trim();
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--website") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Missing value for --website.");
+      }
+      options.websiteUrl = value.trim();
+      index += 1;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  if (options.yes && !options.companyName) {
-    throw new Error("`--yes` requires `--name <company>` for a non-interactive install.");
+  if (options.yes && (!options.companyName || !options.contactName || !options.contactEmail)) {
+    throw new Error("`--yes` requires `--name <company> --full-name <name> --work-email <email>` for a non-interactive install.");
   }
 
   return options;
@@ -1711,17 +1744,17 @@ async function createProject(args: string[]) {
   }
 
   const contactName =
-    options.yes || !process.stdin.isTTY || !process.stdout.isTTY
+    options.contactName ?? (options.yes || !process.stdin.isTTY || !process.stdout.isTTY
       ? ""
-      : await ask(`  ${BOLD}What's your full name?${RESET} `);
+      : await ask(`  ${BOLD}What's your full name?${RESET} `));
   const contactEmail =
-    options.yes || !process.stdin.isTTY || !process.stdout.isTTY
+    options.contactEmail ?? (options.yes || !process.stdin.isTTY || !process.stdout.isTTY
       ? ""
-      : await ask(`  ${BOLD}What's your work email?${RESET} `);
+      : await ask(`  ${BOLD}What's your work email?${RESET} `));
   const websiteUrl =
-    options.yes || !process.stdin.isTTY || !process.stdout.isTTY
+    options.websiteUrl ?? (options.yes || !process.stdin.isTTY || !process.stdout.isTTY
       ? ""
-      : await ask(`  ${BOLD}What's your company website or domain?${RESET} `);
+      : await ask(`  ${BOLD}What's your company website or domain?${RESET} `));
 
   const slug = toSlug(companyName);
   const dirName = `showpane-${slug}`;
@@ -2031,7 +2064,15 @@ async function login() {
   blue("Authenticating with Showpane...");
   console.log();
 
-  const initRes = await fetch(`${API_BASE}/api/cli/init`, { method: "POST" });
+  let initRes: Response;
+  try {
+    initRes = await fetch(`${API_BASE}/api/cli/init`, { method: "POST" });
+  } catch (errorLike) {
+    const message = errorLike instanceof Error ? errorLike.message : String(errorLike);
+    throw new Error(
+      `Could not reach Showpane Cloud at ${API_BASE}. Check your internet connection, VPN/proxy settings, or try again in a moment. (${message})`
+    );
+  }
   if (!initRes.ok) {
     throw new Error(`Failed to start auth flow (${initRes.status})`);
   }
@@ -2110,12 +2151,22 @@ if (process.argv.includes("--version")) {
   process.exit(0);
 }
 
+if (process.argv.length <= 2 && process.argv.includes("--help")) {
+  printCreateUsage();
+  console.log("Commands: claude, login, projects, sync, upgrade");
+  process.exit(0);
+}
+
 if (command === "login") {
   login().catch((err) => {
     error(String(err));
     process.exit(1);
   });
 } else if (command === "claude") {
+  if (process.argv.includes("--help")) {
+    printClaudeUsage();
+    process.exit(0);
+  }
   openClaude(process.argv.slice(3)).catch((err) => {
     error(String(err));
     process.exit(1);

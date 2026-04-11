@@ -22,6 +22,10 @@ fi
 APP_PATH=$("$SHOWPANE_BIN/showpane-config" get app_path 2>/dev/null || python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('app_path',''))" 2>/dev/null)
 DEPLOY_MODE=$("$SHOWPANE_BIN/showpane-config" get deploy_mode 2>/dev/null || python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('deploy_mode','local'))" 2>/dev/null || echo "local")
 ORG_SLUG=$("$SHOWPANE_BIN/showpane-config" get orgSlug 2>/dev/null || python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('orgSlug','') or d.get('org_slug',''))" 2>/dev/null || true)
+CLOUD_API_TOKEN=$("$SHOWPANE_BIN/showpane-config" get accessToken 2>/dev/null || python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('accessToken',''))" 2>/dev/null || true)
+CLOUD_API_BASE="${SHOWPANE_CLOUD_URL:-https://app.showpane.com}"
+CLOUD_ORG_SLUG="${ORG_SLUG:-}"
+CLOUD_PORTAL_URL=$("$SHOWPANE_BIN/showpane-config" get portalUrl 2>/dev/null || python3 -c "import json; d=json.load(open('$CONFIG')); print(d.get('portalUrl',''))" 2>/dev/null || true)
 APP_PATH="${SHOWPANE_APP_PATH:-$APP_PATH}"
 if [ -f "$APP_PATH/.env" ]; then set -a && source "$APP_PATH/.env" && set +a; fi
 DATABASE_URL="${DATABASE_URL:-}"
@@ -62,6 +66,13 @@ SHOWPANE_TIMELINE="$SHOWPANE_HOME/timeline.jsonl"
 mkdir -p "$(dirname "$SHOWPANE_TIMELINE")"
 echo '{"skill":"portal-status","event":"started","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> "$SHOWPANE_TIMELINE" 2>/dev/null
 echo "SHOWPANE: v$SKILL_VERSION | MODE: $DEPLOY_MODE | APP: $APP_PATH"
+if [ "portal-status" = "portal-deploy" ]; then
+  echo "ORG_SLUG: $ORG_SLUG"
+  echo "CLOUD_API_TOKEN: ${CLOUD_API_TOKEN:+present}${CLOUD_API_TOKEN:-missing}"
+  echo "CLOUD_API_BASE: ${CLOUD_API_BASE:-missing}"
+  echo "CLOUD_ORG_SLUG: ${CLOUD_ORG_SLUG:-missing}"
+  echo "CLOUD_PORTAL_URL: ${CLOUD_PORTAL_URL:-missing}"
+fi
 echo "TELEMETRY: $TEL"
 echo "TEL_PROMPTED: $TEL_PROMPTED"
 ```

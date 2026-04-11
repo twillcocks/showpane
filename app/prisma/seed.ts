@@ -33,6 +33,7 @@ async function main() {
   const contactName = process.env.SHOWPANE_CONTACT_NAME?.trim() || null;
   const contactEmail = process.env.SHOWPANE_CONTACT_EMAIL?.trim() || null;
   const websiteUrl = normalizeWebsiteUrl(process.env.SHOWPANE_WEBSITE_URL);
+  const contactTitle = "Point of contact";
 
   const org = await prisma.organization.upsert({
     where: { slug: organizationSlug },
@@ -41,7 +42,7 @@ async function main() {
       name: organizationName,
       slug: organizationSlug,
       contactName,
-      contactTitle: null,
+      contactTitle,
       contactEmail,
       supportEmail: contactEmail,
       websiteUrl,

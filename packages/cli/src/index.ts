@@ -485,7 +485,7 @@ async function maybeConfigureShellPath(config: ShowpaneConfig, options: CreateOp
   }
 
   const answer = await ask(
-    `  ${BOLD}Add Showpane to your PATH so 'showpane' works in future terminals?${RESET} ${DIM}(recommended) [Y/n]${RESET} `
+    `  ${DIM}(recommended)${RESET} ${BOLD}Want me to add Showpane to your PATH so \`showpane\` works in new terminals?${RESET} ${DIM}[Y/n]${RESET} `
   );
 
   if (answer && !["y", "yes"].includes(answer.toLowerCase())) {
@@ -1717,7 +1717,7 @@ async function createProject(args: string[]) {
   const contactEmail =
     options.yes || !process.stdin.isTTY || !process.stdout.isTTY
       ? ""
-      : await ask(`  ${BOLD}What's your email?${RESET} `);
+      : await ask(`  ${BOLD}What's your work email?${RESET} `);
   const websiteUrl =
     options.yes || !process.stdin.isTTY || !process.stdout.isTTY
       ? ""

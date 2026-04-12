@@ -46,6 +46,8 @@ of guessing with ad-hoc SQL.
 Do not probe `showpane --help`, `package.json`, `scripts/`, `prisma/`, or template
 directories just to understand the project. Do not call `check-slug.ts` with
 anything except `--org-id`.
+Do not re-read config, Prisma, or SQLite to rediscover org fields that were already
+returned by `get-org.ts`.
 
 The canonical references for this skill are:
 

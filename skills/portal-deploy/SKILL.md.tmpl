@@ -36,10 +36,9 @@ fi
 If the token is missing, stop and tell the user:
 
 - `showpane login` is the right next step
-- it opens browser auth for Showpane Cloud automatically
-- if they need an account first:
-  - sign up: `https://app.showpane.com/sign-up`
-  - sign in: `https://app.showpane.com/sign-in`
+- it owns the whole browser flow now: sign up or sign in if needed, start checkout,
+  then return to CLI authorization automatically
+- do not manually steer the user through separate sign-up, sign-in, or checkout steps
 
 If they are already inside Claude Code, explicitly suggest:
 
@@ -441,7 +440,7 @@ If the health endpoint returns non-200 after deploy:
 If the Showpane Cloud API returns 401/403 during pre-flight or publish:
 - **401 Unauthorized**: The access token is expired or revoked. Run `showpane login` to re-authenticate.
 - **403 Forbidden**: The token does not belong to an org that can publish. Re-authenticate or finish cloud onboarding.
-- **409 organization_required**: The user authenticated but has no org yet. Send them to Showpane Cloud checkout to start the trial, then re-run `showpane login`.
+- **409 organization_required**: Tell the user to run `showpane login` again and let that browser flow continue. Do not manually redirect them into separate checkout steps from this skill.
 - **409 organization_not_ready**: The org exists, but billing or provisioning is not publish-ready. Surface the returned `reason`, `nextAction`, and settings/checkout URL directly instead of collapsing it into a generic deploy failure.
 
 ### Cloud: Artifact upload failure

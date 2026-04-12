@@ -30,10 +30,14 @@ async function main() {
 
   const organizationSlug =
     process.env.SHOWPANE_ORG_SLUG?.trim() || normalizeSlug(organizationName);
-  const contactName = process.env.SHOWPANE_CONTACT_NAME?.trim() || null;
-  const contactEmail = process.env.SHOWPANE_CONTACT_EMAIL?.trim() || null;
+  const contactName = process.env.SHOWPANE_CONTACT_NAME?.trim() || organizationName;
+  const contactEmail = process.env.SHOWPANE_CONTACT_EMAIL?.trim() || "";
   const websiteUrl = normalizeWebsiteUrl(process.env.SHOWPANE_WEBSITE_URL);
   const contactTitle = "Point of contact";
+
+  if (!contactEmail) {
+    throw new Error("SHOWPANE_CONTACT_EMAIL is required to seed the local organization");
+  }
 
   const org = await prisma.organization.upsert({
     where: { slug: organizationSlug },

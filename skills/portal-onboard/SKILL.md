@@ -290,9 +290,17 @@ Save checkpoint with:
 
 ### Phase 5: Practical refinements
 
-Do not ask the user to invent a whole redesign. Ask for one or two high-signal refinements only.
+This phase is optional.
 
-Recommended refinement prompts:
+Default behavior: do not stop to ask for refinements right after the draft is created.
+Move straight to preview unless one of these is true:
+
+- the user explicitly asked to polish before preview
+- there is an obvious missing practical element that would make the preview misleading
+
+If you do need a refinement prompt, keep it to one short, high-signal question.
+
+Recommended options:
 
 - `Do you want the portal to feel more concise, more sales-focused, or more delivery-focused?`
 - `Should we add anything practical before preview — timeline, documents, or sharper next steps?`
@@ -300,11 +308,17 @@ Recommended refinement prompts:
 Apply the requested refinement inline, using the same patterns as `/portal-update`
 without forcing the user to switch skills.
 
-If the user is happy with the first draft, move on immediately.
+If no refinement is needed, skip this phase entirely.
 
 Save checkpoint with phase `draft-refined`.
 
 ### Phase 6: Local preview
+
+The default path is:
+
+1. create the draft
+2. show local credentials if they were generated
+3. open the preview immediately
 
 Run the `portal-preview` flow inline.
 
@@ -319,6 +333,9 @@ the preview link. Keep it simple:
 
 Do this before opening the browser so the user is not dropped onto a login screen
 without the credentials they need.
+
+After that, open the local preview immediately. Do not ask a separate
+"do you want refinements first?" question unless the user already asked for that.
 
 Tell the user exactly what to inspect:
 

@@ -28,7 +28,22 @@ async function main() {
   try {
     const org = await prisma.organization.findUnique({
       where: { slug },
-      select: { id: true, slug: true, name: true },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        logoUrl: true,
+        primaryColor: true,
+        portalLabel: true,
+        websiteUrl: true,
+        contactName: true,
+        contactTitle: true,
+        contactEmail: true,
+        contactPhone: true,
+        contactAvatar: true,
+        supportEmail: true,
+        customDomain: true,
+      },
     });
 
     if (!org) {

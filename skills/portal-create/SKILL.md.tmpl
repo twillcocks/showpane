@@ -33,6 +33,12 @@ Store:
 
 - `ORG_ID`
 - `ORG_NAME`
+- `ORG_CONTACT_NAME`
+- `ORG_CONTACT_TITLE`
+- `ORG_CONTACT_EMAIL`
+- `ORG_CONTACT_AVATAR`
+- `ORG_SUPPORT_EMAIL`
+- `ORG_WEBSITE_URL`
 
 If the helper fails, stop and tell the user to run `/portal-setup` again instead
 of guessing with ad-hoc SQL.
@@ -45,6 +51,7 @@ The canonical references for this skill are:
 
 - the configured `APP_PATH`
 - the configured `ORG_SLUG`
+- the org fields returned by `get-org.ts`
 - this skill file
 - `$SKILL_DIR/templates/<chosen-template>/...`
 - `$APP_PATH/src/app/(portal)/client/example/example-client.tsx`
@@ -182,13 +189,13 @@ import { PortalShell } from "@/components/portal-shell";
 - The exported component returns `<PortalShell>` with all required props
 
 **PortalShell props (all required):**
-- `companyName` — the org's company name (from config/DB)
+- `companyName` — the org's company name (from `ORG_NAME`)
 - `companyLogo` — a `<span>` with the first letter of the company name, white text
 - `clientName` — the client's company name (from transcript or user input)
 - `clientLogoSrc` — if client domain was provided: use `getLogoUrl(domain)` from `app/src/lib/branding.ts`. If not: use `getInitialLogo(clientName)` to generate an SVG data URI. Store the chosen URL in the ClientPortal record's `logoUrl` field
 - `clientLogoAlt` — the client company name
 - `lastUpdated` — today's date formatted as "7 April 2026"
-- `contact` — object with `name`, `title`, `avatarSrc`, `email` (from org config)
+- `contact` — object with `name`, `title`, `avatarSrc`, `email` (from the `get-org.ts` result, not from ad-hoc config or DB probing)
 - `tabs` — array of tab objects with `id`, `label`, `icon`, `content`, and optional `badge`
 - `hideFooterOnTab` — set to `"overview"` (hides the contact footer on the first tab since it typically has contact info inline)
 

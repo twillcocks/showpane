@@ -2060,13 +2060,20 @@ async function openClaude(args: string[]) {
 async function login() {
   printBanner();
   ensureShowpaneShim();
+  const config = readShowpaneConfig();
 
   blue("Authenticating with Showpane...");
   console.log();
 
   let initRes: Response;
   try {
-    initRes = await fetch(`${API_BASE}/api/cli/init`, { method: "POST" });
+    initRes = await fetch(`${API_BASE}/api/cli/init`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orgSlug: typeof config.orgSlug === "string" ? config.orgSlug : "",
+      }),
+    });
   } catch (errorLike) {
     const message = errorLike instanceof Error ? errorLike.message : String(errorLike);
     throw new Error(

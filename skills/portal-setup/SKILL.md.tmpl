@@ -114,9 +114,9 @@ Do not restart the whole org questionnaire from the top.
 3. **Contact email** (required) — e.g., "jane@acme.com". Displayed in the portal footer as a mailto link.
 4. **Contact title** (optional, default: "Account Manager") — e.g., "Director", "Partner", "Client Success Lead". Shown next to the contact name in the portal footer.
 5. **Contact phone** (optional) — e.g., "+44 7700 900000". If provided, displayed alongside email in the portal footer.
-6. **Company website URL** — e.g., "acme.com". Ask for it plainly instead of framing it as optional. Used to auto-fetch the company logo via Clearbit.
-   - If provided, fetch logo URL: `https://logo.clearbit.com/{domain}` and store in `Organization.logoUrl`
-   - Also store the URL in `Organization.websiteUrl`
+6. **Company website URL** — e.g., "acme.com". Ask for it plainly instead of framing it as optional. Store the normalized value in `Organization.websiteUrl` so runtime branding can derive the company logo.
+   - Do not generate and persist a provider logo URL in `Organization.logoUrl` from this field
+   - Only set `Organization.logoUrl` if the user explicitly gives you a direct logo asset URL they want pinned
 7. **Contact avatar**: Auto-populated from the contact email via Gravatar. No need to ask — just use `getAvatarUrl(email, contactName)` from `app/src/lib/branding.ts` and store in `Organization.contactAvatar`
 
 Generate an org slug from the organization name: lowercase, replace spaces with hyphens, strip non-alphanumeric characters except hyphens, remove consecutive hyphens. For example, "Acme Consulting Ltd." becomes `acme-consulting-ltd`. Confirm the generated slug with the user and allow them to override it.

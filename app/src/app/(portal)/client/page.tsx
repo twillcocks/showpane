@@ -13,7 +13,7 @@ export default async function ClientLogin({
   const portalSlug = params.portal?.trim() || null;
 
   let companyName = "Showpane";
-  let companyUrl = "https://showpane.com";
+  let companyUrl: string | null = "https://showpane.com";
   let supportEmail = "support@showpane.com";
   let portalLabel = "Client Portal";
   let description = "Private portal access. Sign in with the credentials you were sent.";
@@ -36,9 +36,7 @@ export default async function ClientLogin({
             websiteUrl: state?.organization?.websiteUrl,
             fallbackName: orgName,
           });
-          if (state?.organization?.websiteUrl) {
-            companyUrl = state.organization.websiteUrl;
-          }
+          companyUrl = state?.organization?.websiteUrl ?? null;
           if (state?.organization?.supportEmail) {
             supportEmail = state.organization.supportEmail;
           }
@@ -79,9 +77,7 @@ export default async function ClientLogin({
               fallbackName: orgName,
             });
           }
-          if (organization?.websiteUrl) {
-            companyUrl = organization.websiteUrl;
-          }
+          companyUrl = organization?.websiteUrl ?? null;
           if (organization?.supportEmail) {
             supportEmail = organization.supportEmail;
           }

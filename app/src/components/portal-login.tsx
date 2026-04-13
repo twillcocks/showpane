@@ -7,7 +7,7 @@ export type PortalLoginProps = {
   companyName: string;
   companyLogoSrc?: string | null;
   companyLogoAlt?: string;
-  companyUrl: string;
+  companyUrl?: string | null;
   portalLabel?: string;
   description?: string;
   supportEmail: string;
@@ -38,12 +38,33 @@ export function PortalLogin({
   const resolvedAuthEndpoint = authEndpoint ?? "/api/client-auth";
   const resolvedRedirectBasePath = redirectBasePath ?? "/client";
   const resolvedCompanyLogoAlt = companyLogoAlt ?? companyName;
+  const brandMark = (
+    <>
+      {companyLogoSrc && !logoFailed ? (
+        <img
+          src={companyLogoSrc}
+          alt={resolvedCompanyLogoAlt}
+          className="h-7 w-7 rounded-lg object-cover"
+          onError={() => setLogoFailed(true)}
+        />
+      ) : (
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-900">
+          <span className="text-xs font-bold text-white">
+            {companyName[0]?.toUpperCase() || "S"}
+          </span>
+        </div>
+      )}
+      <span className="text-base font-bold tracking-tight text-gray-900">{companyName}</span>
+    </>
+  );
 
-  let displayDomain: string;
-  try {
-    displayDomain = new URL(companyUrl).hostname;
-  } catch {
-    displayDomain = companyUrl;
+  let displayDomain: string | null = null;
+  if (companyUrl) {
+    try {
+      displayDomain = new URL(companyUrl).hostname;
+    } catch {
+      displayDomain = companyUrl;
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -89,23 +110,15 @@ export function PortalLogin({
       <div className="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-primary/5 blur-[120px]" />
 
       <div className="relative z-10 w-full max-w-sm">
-        <a href={companyUrl} className="mx-auto mb-8 flex w-fit items-center gap-2 transition-opacity hover:opacity-70">
-          {companyLogoSrc && !logoFailed ? (
-            <img
-              src={companyLogoSrc}
-              alt={resolvedCompanyLogoAlt}
-              className="h-7 w-7 rounded-lg object-cover"
-              onError={() => setLogoFailed(true)}
-            />
-          ) : (
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-900">
-              <span className="text-xs font-bold text-white">
-                {companyName[0]?.toUpperCase() || "S"}
-              </span>
-            </div>
-          )}
-          <span className="text-base font-bold tracking-tight text-gray-900">{companyName}</span>
-        </a>
+        {companyUrl ? (
+          <a href={companyUrl} className="mx-auto mb-8 flex w-fit items-center gap-2 transition-opacity hover:opacity-70">
+            {brandMark}
+          </a>
+        ) : (
+          <div className="mx-auto mb-8 flex w-fit items-center gap-2">
+            {brandMark}
+          </div>
+        )}
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-5">
@@ -173,9 +186,11 @@ export function PortalLogin({
         </div>
 
         <div className="mt-5 space-y-2 text-center text-xs">
-          <p className="text-gray-400">
-            Not a client? <a href={companyUrl} className="text-gray-500 underline underline-offset-2 transition-colors hover:text-gray-700">Visit {displayDomain}</a>
-          </p>
+          {companyUrl && displayDomain ? (
+            <p className="text-gray-400">
+              Not a client? <a href={companyUrl} className="text-gray-500 underline underline-offset-2 transition-colors hover:text-gray-700">Visit {displayDomain}</a>
+            </p>
+          ) : null}
           <p className="text-gray-400">
             Lost your credentials? Email <span className="font-medium text-gray-500">{supportEmail}</span>
           </p>

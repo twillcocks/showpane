@@ -33,7 +33,7 @@ export type PortalShellProps = {
   portalLabel?: string;
 
   clientName: string;
-  clientLogoSrc: string;
+  clientLogoSrc?: string | null;
   clientLogoAlt: string;
 
   tabs: PortalTab[];
@@ -181,6 +181,7 @@ export function PortalShell({
   const [copyError, setCopyError] = useState(false);
   const [visitorId] = useState(() => getOrCreateVisitorId());
   const [showLocalBanner, setShowLocalBanner] = useState(false);
+  const [clientLogoFailed, setClientLogoFailed] = useState(false);
 
   useEffect(() => {
     const syncFromHash = () => setActiveTab(readHashTab(tabIds));
@@ -206,6 +207,10 @@ export function PortalShell({
     const host = window.location.hostname;
     setShowLocalBanner(host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0");
   }, []);
+
+  useEffect(() => {
+    setClientLogoFailed(false);
+  }, [clientLogoSrc]);
 
   useSectionTimeTracking(activeTab, resolvedEventsEndpoint, visitorId);
 
@@ -234,7 +239,8 @@ export function PortalShell({
   }
 
   const activeContent = tabs.find((t) => t.id === activeTab)?.content ?? null;
-  const showFooter = hideFooterOnTab ? activeTab !== hideFooterOnTab : true;
+  const showContactFooter = hideFooterOnTab ? activeTab !== hideFooterOnTab : true;
+  const clientInitial = clientName[0]?.toUpperCase() || "?";
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
@@ -262,14 +268,25 @@ export function PortalShell({
                 <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-900">
                   {companyLogo}
                 </div>
-                <img
-                  src={clientLogoSrc}
-                  alt={clientLogoAlt}
-                  width={32}
-                  height={32}
-                  className="-ml-2 h-8 w-8 rounded-full border-2 border-white"
-                  loading="eager"
-                />
+                {clientLogoSrc && !clientLogoFailed ? (
+                  <img
+                    src={clientLogoSrc}
+                    alt={clientLogoAlt}
+                    width={32}
+                    height={32}
+                    className="-ml-2 h-8 w-8 rounded-full border-2 border-white bg-white object-cover"
+                    loading="eager"
+                    onError={() => setClientLogoFailed(true)}
+                  />
+                ) : (
+                  <div
+                    role="img"
+                    aria-label={clientLogoAlt}
+                    className="-ml-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-100"
+                  >
+                    <span className="text-[11px] font-semibold text-gray-700">{clientInitial}</span>
+                  </div>
+                )}
               </div>
               <div>
                 <h1 className="text-sm font-bold tracking-tight text-gray-900">
@@ -342,8 +359,8 @@ export function PortalShell({
         {activeContent}
       </main>
 
-      {showFooter ? (
-        <footer className="mt-auto border-t bg-white">
+      <footer className="mt-auto border-t bg-white">
+        {showContactFooter ? (
           <div className="mx-auto flex max-w-4xl items-center gap-4 px-4 py-4 sm:px-6">
             <img
               src={contact.avatarSrc}
@@ -377,20 +394,28 @@ export function PortalShell({
               ) : null}
             </div>
           </div>
-          <div className="flex items-center justify-center gap-2 pb-3">
-            <p className="text-[11px] text-gray-300">Last updated {lastUpdated}</p>
-            <span className="text-gray-200">·</span>
+        ) : null}
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-center gap-2 px-4 py-3 text-[11px] text-gray-400 sm:px-6",
+            showContactFooter ? "border-t border-gray-100" : "",
+          )}
+        >
+          <p>Last updated {lastUpdated}</p>
+          <span className="text-gray-200">·</span>
+          <p>
+            Created using{" "}
             <a
               href="https://showpane.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] text-gray-300 transition-colors hover:text-gray-400"
+              className="font-medium text-gray-500 transition-colors hover:text-gray-700"
             >
-              Powered by Showpane
+              showpane.com
             </a>
-          </div>
-        </footer>
-      ) : null}
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

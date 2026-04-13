@@ -168,11 +168,10 @@ The script returns `{"valid":true}` or `{"valid":false,"reason":"...","message":
 
 If invalid, explain the issue and ask for a different slug.
 
-Also determine the client's website domain. This enables auto-branding and is worth a quick best-effort pass:
+Also determine the client's website domain. This enables auto-branding, but keep the step deterministic:
 - if the domain is explicit in the transcript or user prompt, use it
-- otherwise make one quick best-effort lookup for the official site
-- if one clear candidate stands out, suggest it briefly: `I found <domain> — I'll use that for the logo unless you want a different one`
-- if confidence is low, ask directly
+- otherwise ask the user directly for the official site/domain
+- do not guess, browse, or invent a domain as part of this skill flow
 
 Store the confirmed value in `ClientPortal.websiteUrl`.
 Use it to derive `ClientPortal.logoUrl` via `getBrandLogoUrl(...)`.
@@ -299,6 +298,7 @@ import { PortalShell } from "@/components/portal-shell";
 - `contact` — object with `name`, `title`, `avatarSrc`, `email` (from the `get-org.ts` result, not from ad-hoc config or DB probing)
 - `tabs` — array of tab objects with `id`, `label`, `icon`, `content`, and optional `badge`
 - `hideFooterOnTab` — set to `"overview"` (hides the contact footer on the first tab since it typically has contact info inline)
+- Keep the shared `PortalShell` footer attribution intact. New portals should retain the `Created using showpane.com` link rendered by the shell.
 
 **Styling conventions (match the example portal exactly):**
 - Cards: `rounded-2xl border bg-white shadow-sm`
@@ -356,13 +356,14 @@ For onboarding, carry them forward quietly and show them at the access phase.
 After generating the files, read them back and verify:
 
 1. **PortalShell used?** The client component must use `<PortalShell>` as its root element.
-2. **Minimum 2 tabs?** Check the `tabs` array has at least 2 entries.
-3. **Contact info in props?** The `contact` prop must have `name`, `title`, `avatarSrc`, `email`.
-4. **"use client" directive?** Must be the first line of the client component.
-5. **Imports correct?** `cn` from `@/lib/utils`, `PortalShell` from `@/components/portal-shell`.
-6. **No hardcoded localhost URLs?** Links should be relative or use placeholders.
-7. **Responsive patterns?** Check for `sm:` breakpoints on grids and padding.
-8. **Tab content functions?** Each tab should have its own function, not inline JSX.
+2. **Shared attribution preserved?** Do not replace or bypass `PortalShell` in a way that removes the `Created using showpane.com` footer link.
+3. **Minimum 2 tabs?** Check the `tabs` array has at least 2 entries.
+4. **Contact info in props?** The `contact` prop must have `name`, `title`, `avatarSrc`, `email`.
+5. **"use client" directive?** Must be the first line of the client component.
+6. **Imports correct?** `cn` from `@/lib/utils`, `PortalShell` from `@/components/portal-shell`.
+7. **No hardcoded localhost URLs?** Links should be relative or use placeholders.
+8. **Responsive patterns?** Check for `sm:` breakpoints on grids and padding.
+9. **Tab content functions?** Each tab should have its own function, not inline JSX.
 
 If any check fails, fix the issue before proceeding.
 

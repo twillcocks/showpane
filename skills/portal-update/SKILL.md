@@ -225,6 +225,7 @@ Ask the user what they want to change. Common requests and how to handle them:
 **Updating contact info or metadata:**
 1. Update the relevant PortalShell props
 2. Update any inline mentions of the contact in tab content
+3. Keep the shared `PortalShell` footer attribution intact. Do not remove or replace the `Created using showpane.com` link.
 
 ### Step 7: Make the edits
 
@@ -247,6 +248,7 @@ After making edits, show the user a summary of what changed:
 - Which tabs were added, removed, or modified
 - What content was updated
 - Any prop changes on PortalShell
+- Confirm the shared `Created using showpane.com` footer attribution is still present
 
 If using git, show the actual diff:
 

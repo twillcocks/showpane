@@ -36,7 +36,7 @@ export function getDomainFromWebsite(value?: string | null): string | null {
 
 /**
  * Fetch a company logo URL from a domain.
- * Uses Clearbit Logo API (free, no key required).
+ * Uses Logo.dev for hosted brand logos.
  * Falls back to a UI Avatars URL with the company initial.
  */
 export function getLogoUrl(domain: string, fallbackName?: string): string {

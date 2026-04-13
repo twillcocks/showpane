@@ -84,6 +84,7 @@ export interface PortalFileSyncManifestPayload {
 export interface RuntimePortalSnapshot {
   slug: string;
   companyName: string;
+  websiteUrl?: string | null;
   logoUrl?: string | null;
   username: string;
   passwordHash: string;

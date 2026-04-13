@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, FormEvent, ReactNode } from "react";
+import { useState, FormEvent } from "react";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 
 export type PortalLoginProps = {
   companyName: string;
-  companyLogo: ReactNode;
+  companyLogoSrc?: string | null;
+  companyLogoAlt?: string;
   companyUrl: string;
   portalLabel?: string;
   description?: string;
@@ -16,7 +17,8 @@ export type PortalLoginProps = {
 
 export function PortalLogin({
   companyName,
-  companyLogo,
+  companyLogoSrc,
+  companyLogoAlt,
   companyUrl,
   portalLabel,
   description,
@@ -29,11 +31,13 @@ export function PortalLogin({
   const [error, setError] = useState<{ message: string; hint?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
 
   const resolvedPortalLabel = portalLabel ?? "Client Portal";
   const resolvedDescription = description ?? `Private portal for ${companyName} clients. Sign in with the credentials we sent you.`;
   const resolvedAuthEndpoint = authEndpoint ?? "/api/client-auth";
   const resolvedRedirectBasePath = redirectBasePath ?? "/client";
+  const resolvedCompanyLogoAlt = companyLogoAlt ?? companyName;
 
   let displayDomain: string;
   try {
@@ -86,7 +90,20 @@ export function PortalLogin({
 
       <div className="relative z-10 w-full max-w-sm">
         <a href={companyUrl} className="mx-auto mb-8 flex w-fit items-center gap-2 transition-opacity hover:opacity-70">
-          {companyLogo}
+          {companyLogoSrc && !logoFailed ? (
+            <img
+              src={companyLogoSrc}
+              alt={resolvedCompanyLogoAlt}
+              className="h-7 w-7 rounded-lg object-cover"
+              onError={() => setLogoFailed(true)}
+            />
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-900">
+              <span className="text-xs font-bold text-white">
+                {companyName[0]?.toUpperCase() || "S"}
+              </span>
+            </div>
+          )}
           <span className="text-base font-bold tracking-tight text-gray-900">{companyName}</span>
         </a>
 

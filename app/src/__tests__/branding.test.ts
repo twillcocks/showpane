@@ -5,6 +5,7 @@ import {
   getDomainFromWebsite,
   getLogoUrl,
   normalizeWebsiteUrl,
+  resolvePortalLabel,
 } from "@/lib/branding";
 
 describe("branding helpers", () => {
@@ -39,5 +40,10 @@ describe("branding helpers", () => {
         fallbackName: "Bidgen",
       }),
     ).toBe(getLogoUrl("", "Bidgen"));
+  });
+
+  it("uses the org name when the stored portal label is still generic", () => {
+    expect(resolvePortalLabel("Bidgen-Test", "Client Portal")).toBe("Bidgen-Test Portal");
+    expect(resolvePortalLabel("Bidgen-Test", "Bidgen-Test Workspace")).toBe("Bidgen-Test Workspace");
   });
 });

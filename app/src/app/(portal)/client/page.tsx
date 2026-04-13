@@ -1,5 +1,5 @@
 import { PortalLogin } from "@/components/portal-login";
-import { getBrandLogoUrl } from "@/lib/branding";
+import { getBrandLogoUrl, resolvePortalLabel } from "@/lib/branding";
 import { prisma } from "@/lib/db";
 import { resolveDefaultOrganizationId } from "@/lib/client-portals";
 import { getRuntimePortalBySlug, getRuntimeState, isRuntimeSnapshotMode } from "@/lib/runtime-state";
@@ -29,7 +29,7 @@ export default async function ClientLogin({
           const orgName = state?.organization?.name || companyName;
           companyName = orgName;
           companyLogoAlt = orgName;
-          portalLabel = state?.organization?.portalLabel || `${orgName} Portal`;
+          portalLabel = resolvePortalLabel(orgName, state?.organization?.portalLabel);
           description = `Private portal created by ${orgName} for ${portal.companyName}. Sign in with the credentials you were sent.`;
           companyLogoSrc = getBrandLogoUrl({
             logoUrl: state?.organization?.logoUrl,
@@ -71,7 +71,7 @@ export default async function ClientLogin({
             const orgName = organization?.name || companyName;
             companyName = orgName;
             companyLogoAlt = orgName;
-            portalLabel = organization?.portalLabel || `${orgName} Portal`;
+            portalLabel = resolvePortalLabel(orgName, organization?.portalLabel);
             description = `Private portal created by ${orgName} for ${portal.companyName}. Sign in with the credentials you were sent.`;
             companyLogoSrc = getBrandLogoUrl({
               logoUrl: organization?.logoUrl,
@@ -95,21 +95,8 @@ export default async function ClientLogin({
   return (
     <PortalLogin
       companyName={companyName}
-      companyLogo={
-        companyLogoSrc ? (
-          <img
-            src={companyLogoSrc}
-            alt={companyLogoAlt}
-            className="h-7 w-7 rounded-lg object-cover"
-          />
-        ) : (
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-900">
-            <span className="text-xs font-bold text-white">
-              {companyName[0]?.toUpperCase() || "S"}
-            </span>
-          </div>
-        )
-      }
+      companyLogoSrc={companyLogoSrc}
+      companyLogoAlt={companyLogoAlt}
       companyUrl={companyUrl}
       supportEmail={supportEmail}
       portalLabel={portalLabel}

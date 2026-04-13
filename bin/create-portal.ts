@@ -13,6 +13,21 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+function shouldRetryWithoutWebsiteUrl(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("websiteurl") &&
+    (
+      normalized.includes("unknown arg") ||
+      normalized.includes("unknown argument") ||
+      normalized.includes("unknown field") ||
+      normalized.includes("no column named") ||
+      normalized.includes("has no column") ||
+      normalized.includes("does not exist")
+    )
+  );
+}
+
 async function main() {
   const args = process.argv.slice(2);
 
@@ -74,11 +89,7 @@ async function main() {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (
-        websiteUrl &&
-        (message.includes("Unknown arg `websiteUrl`") ||
-          message.includes("Unknown argument `websiteUrl`"))
-      ) {
+      if (websiteUrl && shouldRetryWithoutWebsiteUrl(message)) {
         delete createData.websiteUrl;
         portal = await prisma.clientPortal.create({
           data: createData,

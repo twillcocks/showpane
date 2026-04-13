@@ -41,8 +41,13 @@ export function getDomainFromWebsite(value?: string | null): string | null {
  */
 export function getLogoUrl(domain: string, fallbackName?: string): string {
   if (domain) {
-    // Clearbit Logo API - free, no authentication needed
-    return `https://logo.clearbit.com/${domain}`;
+    const params = new URLSearchParams({
+      size: "128",
+      format: "webp",
+      fallback: "monogram",
+      retina: "true",
+    });
+    return `https://img.logo.dev/${domain}?${params.toString()}`;
   }
   // Fallback: initial-based avatar via ui-avatars.com
   const initial = (fallbackName || "?")[0].toUpperCase();
@@ -64,6 +69,17 @@ export function getBrandLogoUrl(options: {
 
   const domain = getDomainFromWebsite(options.websiteUrl);
   return getLogoUrl(domain ?? "", options.fallbackName);
+}
+
+export function resolvePortalLabel(
+  organizationName: string,
+  portalLabel?: string | null,
+): string {
+  if (portalLabel && portalLabel.trim() && portalLabel !== "Client Portal") {
+    return portalLabel;
+  }
+
+  return `${organizationName} Portal`;
 }
 
 /**

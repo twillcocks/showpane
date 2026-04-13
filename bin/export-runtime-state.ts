@@ -45,21 +45,57 @@ async function main() {
       fail("No organization found");
     }
 
-    const portals = await prisma.clientPortal.findMany({
-      where: { organizationId: organization.id },
-      orderBy: { createdAt: "asc" },
-      select: {
-        slug: true,
-        companyName: true,
-        websiteUrl: true,
-        logoUrl: true,
-        username: true,
-        passwordHash: true,
-        credentialVersion: true,
-        isActive: true,
-        lastUpdated: true,
-      },
-    });
+    let portals: Array<{
+      slug: string;
+      companyName: string;
+      websiteUrl?: string | null;
+      logoUrl?: string | null;
+      username: string;
+      passwordHash: string;
+      credentialVersion: string;
+      isActive: boolean;
+      lastUpdated?: string | null;
+    }> = [];
+    try {
+      portals = await prisma.clientPortal.findMany({
+        where: { organizationId: organization.id },
+        orderBy: { createdAt: "asc" },
+        select: {
+          slug: true,
+          companyName: true,
+          websiteUrl: true,
+          logoUrl: true,
+          username: true,
+          passwordHash: true,
+          credentialVersion: true,
+          isActive: true,
+          lastUpdated: true,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.toLowerCase().includes("websiteurl")) {
+        throw error;
+      }
+      const legacyPortals = await prisma.clientPortal.findMany({
+        where: { organizationId: organization.id },
+        orderBy: { createdAt: "asc" },
+        select: {
+          slug: true,
+          companyName: true,
+          logoUrl: true,
+          username: true,
+          passwordHash: true,
+          credentialVersion: true,
+          isActive: true,
+          lastUpdated: true,
+        },
+      });
+      portals = legacyPortals.map((portal) => ({
+        ...portal,
+        websiteUrl: null,
+      }));
+    }
 
     console.log(JSON.stringify({
       ok: true,

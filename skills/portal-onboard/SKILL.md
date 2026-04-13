@@ -154,20 +154,12 @@ If a checkpoint exists:
 
 ### Phase 1: Orientation
 
-Start with a compact welcome:
-
-```
- ╔══════════════════════════════════════════╗
- ║  SHOWPANE — First Portal Wizard         ║
- ╚══════════════════════════════════════════╝
-```
-
-Then use one short, friendly paragraph. Keep it concise and informal.
+Start with one short setup confirmation and one sharp ask. Keep it concise and informal.
 
 Suggested shape:
 
-- "Let's get your first portal started."
-- "Who's it for, and what's the context? If you've got a call transcript, paste it in and I'll use that too."
+- "Everything's set up. Let's make your first portal."
+- "Who’s it for? Paste a call transcript or meeting notes, or give me a short brief on the client and what you want the portal to do."
 
 Keep the opening focused on the user's first portal. This skill is the first-run default, so the top of the flow should feel fast, calm, and immediately useful.
 
@@ -222,7 +214,7 @@ Start with one short source question, not a menu.
 
 Recommended opening:
 
-- "Who's it for, and what's the context? If you've got a call transcript, paste it in and I'll use that too."
+- "Who’s it for? Paste a call transcript or meeting notes, or give me a short brief on the client and what you want the portal to do."
 
 Only branch after the user answers:
 
@@ -330,24 +322,29 @@ If no dev server is running, start it using the `portal-dev` instructions first.
 If the create step already generated local credentials, show them before opening
 the preview link. Keep it simple:
 
+- preview URL
 - username
 - password
-- one sentence saying these are for local preview right now
 
 Do this before opening the browser so the user is not dropped onto a login screen
 without the credentials they need.
 
-After that, open the local preview immediately. Do not ask a separate
-"do you want refinements first?" question unless the user already asked for that.
+After that, open the local preview immediately.
 
-Tell the user exactly what to inspect:
+Once the preview is open, keep the handoff short and decision-oriented. Tell the
+user exactly what to inspect:
 
 - does the overall story feel right?
-- are next steps clear?
-- are obvious documents or dates missing?
+- anything factually wrong?
 
 If the user requests a small content fix after preview, make it and preview again.
 Keep this loop tight. Do not let it become an open-ended editing session.
+
+Bias the next step toward publish:
+
+- `If it looks right, say publish.`
+- `If not, tell me what to change.`
+- `If it looks right, I can publish it to Showpane Cloud so you get a hosted link and built-in analytics without having to self-host. Free for 7 days, then $29/mo.`
 
 Save checkpoint with phase `previewed`.
 
@@ -416,27 +413,32 @@ Save checkpoint with phase `published` once the hosted URL is live or clearly ac
 
 ### Phase 9: Final summary
 
-Show a compact final reference card:
+Show a compact final handoff card. At this point, prioritize the hosted link,
+the active access credentials, and one or two clear next actions.
 
 ```
 ════════════════════════════════════════
-  First portal complete
+  First portal live
 
   Portal: <slug> (<company>)
-  Local:  http://localhost:3000/client/<slug>
-  Cloud:  <hosted-url-or-publishing-status>
-  Access: <hosted login / hosted share link / both>
+  Cloud:  <hosted login URL or share URL>
+  Login:  <username if login is the active access mode>
+  Pass:   <password if login is the active access mode>
 
-  Next: /portal-update <slug>
-  Help: /portal-list, /portal-status
+  Next:   /portal-update <slug>
+          /portal-share <slug>   (if a direct hosted link would help)
 ════════════════════════════════════════
 ```
 
 Rules:
 
-- never include the password in the final summary
-- include the hosted share URL only if it exists and the user explicitly asked for it after publish
+- if login is the active access mode, include the username and password here so the user does not have to scroll back
+- if a hosted share URL exists because the user asked for one after publish, show that as the primary cloud link
+- otherwise show the hosted login URL as the cloud link
+- keep the summary short; avoid extra explanation once the portal is live
 - if publish is still finalizing, say so plainly instead of pretending it is live
+  In that case, show the local preview link and point the user to `/portal-status`
+  instead of pretending the hosted link is ready.
 
 After the final summary, delete the checkpoint:
 

@@ -153,17 +153,16 @@ Present the link in a clear, copy-friendly ASCII box:
 
 ```
 ════════════════════════════════════════
-  Share link for: whzan
-  https://portal.example.com/client/whzan/s/eyJ...
-  Expires: never (until credentials rotate)
+  Share link: https://portal.example.com/client/whzan/s/eyJ...
+  Revoke: rotate credentials or deactivate the portal
 ════════════════════════════════════════
 ```
 
 ### Step 4: Provide usage guidance
 
-After displaying the link, add this note:
+After displaying the link, add one short note:
 
-"This link is meant for the hosted portal. The link stays valid until the portal credentials are rotated or the portal is deactivated."
+`This is for the hosted portal. It stays valid until credentials rotate or the portal is deactivated.`
 
 If the user has previously generated share links (check learnings for patterns), you can skip the explanation and just show the link.
 

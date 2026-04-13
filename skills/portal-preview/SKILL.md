@@ -183,12 +183,15 @@ Run this in a single Bash tool call so the browser opens immediately.
 After opening, display:
 
 ```
-Opened portal for <slug> in browser
-URL: http://localhost:3000/client/<slug>
+Preview ready
+
+  URL:   http://localhost:3000/client/<slug>
+  Login: /portal-credentials <slug>
 ```
 
-If the portal has credentials set up, remind the user:
-"Login with the credentials from /portal-credentials <slug>. For external access, publish first with /portal-deploy."
+Then add one short next step:
+
+- `If it looks right, publish it with /portal-deploy.`
 
 If the portal is the example portal (slug is "example"), no credentials are needed -- it is publicly accessible by design.
 

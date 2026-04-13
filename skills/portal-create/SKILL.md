@@ -138,13 +138,8 @@ Store:
 If the helper fails, stop and tell the user to run `/portal-setup` again instead
 of guessing with ad-hoc SQL.
 
-Do not probe `showpane --help`, `package.json`, `scripts/`, `prisma/`, or template
-directories just to understand the project. Do not call `check-slug.ts` with
-anything except `--org-id`.
-Do not re-read config, Prisma, or SQLite to rediscover org fields that were already
-returned by `get-org.ts`.
-
-The canonical references for this skill are:
+Once `get-org.ts` succeeds, extra project probing rarely improves the draft.
+Use that result plus the selected template/example as the canonical references:
 
 - the configured `APP_PATH`
 - the configured `ORG_SLUG`
@@ -152,6 +147,9 @@ The canonical references for this skill are:
 - this skill file
 - `$SKILL_DIR/templates/<chosen-template>/...`
 - `$APP_PATH/src/app/(portal)/client/example/example-client.tsx`
+
+For slug checks, use `check-slug.ts` with `--org-id`. Re-reading config, Prisma,
+or SQLite usually just burns time without changing the correct org context.
 
 ### Step 2: Determine the portal slug
 
@@ -215,10 +213,10 @@ Always also read the example portal as your quality and style reference:
 cat "$APP_PATH/src/app/(portal)/client/example/example-client.tsx"
 ```
 
-The template provides content structure. The example provides quality and styling. Match the example's patterns: card styles, typography, spacing, responsive breakpoints. Templates are inspiration, not rigid scaffolds. Adapt the structure to fit the actual content.
-
-Do not search the repo for templates or ask the filesystem where templates live.
-Use the selected template and the exact `SKILL_DIR` path above.
+The template provides structure. The example provides quality and styling.
+Read those directly from the known paths above, then match the example's card
+styles, typography, spacing, and responsive breakpoints. Templates are
+inspiration, not rigid scaffolds.
 
 ### Step 5: Analyze transcript (if available)
 

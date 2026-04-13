@@ -169,15 +169,17 @@ cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PA
 Use the returned `org.id` as the canonical org id for the rest of the create flow.
 Do not guess schema fields or discover the org via ad-hoc SQLite queries if this helper succeeds.
 
-Also: do not probe `showpane --help`, `package.json`, `scripts/`, `prisma/`, or
-template directories just to reorient yourself. At this point the canonical inputs
-are already known:
+At this point, extra repo reorientation rarely changes the first draft. Use the
+known inputs below and spend the time shaping the portal instead:
 
 - workspace app path
 - org slug
 - selected client company name
 - selected template
 - optional transcript source
+
+If you need structure or style, read only the selected template and the example
+portal. Other portal skills are for later phases and usually just add latency here.
 
 During this phase:
 
@@ -291,8 +293,10 @@ afterthought unless the user explicitly says they want to stop at local preview.
 
 If cloud auth is missing:
 
-- tell the user to run `showpane login`
-- after login completes, resume from the checkpoint
+- run `showpane login` inline via Bash in the current session
+- if you need to hand control to the user, tell them to run `! showpane login`
+- let it handle sign-in, sign-up, and checkout if needed
+- then resume publish from the checkpoint
 
 If deploy returns `organization_required`:
 

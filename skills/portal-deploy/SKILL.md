@@ -165,353 +165,65 @@ If type errors are found, display them and stop. Offer to fix simple issues (mis
 
 Run list-portals and warn about portals missing credentials. This is a warning, not a blocker.
 
-### Cloud Step 2: Build the app
+### Cloud Step 2: Run the canonical deploy command
 
-Before building, ensure the hidden local project-link metadata exists:
-
-```bash
-if [ ! -f "$APP_PATH/.vercel/project.json" ]; then
-  cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/ensure-cloud-project-link.ts"
-fi
-```
-
-Run the cloud build command that produces the prebuilt artifact:
+Use the built-in deploy command instead of reimplementing the staged cloud protocol in shell.
 
 ```bash
-cd "$APP_PATH" && npm run cloud:build
+DEPLOY_JSON=$(cd "$APP_PATH" && SHOWPANE_APP_PATH="$APP_PATH" NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$SKILL_DIR/bin/tsconfig.json" "$SKILL_DIR/bin/deploy-to-cloud.ts" --app-path "$APP_PATH" --wait --json)
+echo "$DEPLOY_JSON"
 ```
 
-After the build completes, verify the output directory was created:
+That command already owns:
+- type check
+- project-link bootstrap
+- `cloud:build`
+- artifact packaging
+- runtime export
+- optional file sync
+- deployment init/upload/finalize
+- polling to terminal state
+- hosted verification
 
-```bash
-ls -la "$APP_PATH/.vercel/output/"
-```
+Parse the JSON and stop immediately if `ok` is false.
 
-Expected: the `.vercel/output/` directory exists and contains `config.json`, `static/`, and optionally `functions/`. If the build fails or the output directory is missing, show the build errors and stop.
+### Cloud Step 3: Summarize the result
 
-The build typically takes 30-90 seconds depending on the number of portals.
+Read these fields from the returned JSON:
+- `deploymentId`
+- `status`
+- `liveUrl`
+- `portalCount`
+- `firstPortalSlug`
+- `fileSyncCount`
+- `verification.portalStatus`
+- `verification.healthStatus`
 
-### Cloud Step 3: Package the deploy artifact
+If `status` is not `live`, treat the deploy as failed.
 
-Package the prebuilt output plus the traced runtime files as a single zip artifact that can be handed to Showpane Cloud. This bundle must include:
-- `.vercel/output/**`
-- traced `.next/server/**` and `node_modules/**` files referenced by the build output
-- a sanitized `.env` stub so the traced runtime can resolve its expected path without leaking local secrets
+Print a concise summary:
 
-```bash
-ARTIFACT_PATH="/tmp/showpane-deploy-${CLOUD_ORG_SLUG:-portal}.zip"
-rm -f "$ARTIFACT_PATH"
-cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/create-deploy-bundle.ts" --output "$ARTIFACT_PATH"
-test -f "$ARTIFACT_PATH" || { echo "ERROR: Artifact zip was not created"; exit 1; }
-echo "Artifact ready: $ARTIFACT_PATH"
-```
+```text
+Cloud deploy complete
 
-### Cloud Step 4: Export runtime data
-
-Export the current local portal-runtime state so Showpane Cloud can sync credentials and portal metadata before publishing:
-
-```bash
-RUNTIME_DATA_PATH="/tmp/showpane-runtime-${CLOUD_ORG_SLUG:-portal}.json"
-rm -f "$RUNTIME_DATA_PATH"
-cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-runtime-state.ts" > "$RUNTIME_DATA_PATH" \
-  || { echo "ERROR: Runtime payload export failed"; exit 1; }
-test -s "$RUNTIME_DATA_PATH" || { echo "ERROR: Runtime payload was not created"; exit 1; }
-echo "Runtime payload ready: $RUNTIME_DATA_PATH"
-```
-
-### Cloud Step 5: Export file manifest
-
-Export uploaded document metadata and checksums so Showpane Cloud can determine which files need syncing:
-
-```bash
-FILE_MANIFEST_PATH="/tmp/showpane-files-${CLOUD_ORG_SLUG:-portal}.json"
-rm -f "$FILE_MANIFEST_PATH"
-cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/export-file-manifest.ts" > "$FILE_MANIFEST_PATH" \
-  || { echo "ERROR: File manifest export failed"; exit 1; }
-test -s "$FILE_MANIFEST_PATH" || { echo "ERROR: File manifest was not created"; exit 1; }
-echo "File manifest ready: $FILE_MANIFEST_PATH"
-```
-
-### Cloud Step 6: Sync uploaded files
-
-Ask Showpane Cloud which files are missing or stale, then upload only those file bytes:
-
-```bash
-SYNC_PLAN_RESPONSE=$(curl -s -X POST "$CLOUD_API_BASE/api/files/plan" \
-  -H "Authorization: Bearer $CLOUD_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data-binary @"$FILE_MANIFEST_PATH")
-
-MISSING_COUNT=$(echo "$SYNC_PLAN_RESPONSE" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-if 'error' in d:
-    print('ERROR: ' + d['error'])
-    sys.exit(1)
-print(len(d.get('missing', [])))
-")
-
-echo \"Files to sync: $MISSING_COUNT\"
-
-if [ \"$MISSING_COUNT\" -gt 0 ]; then
-  TMP_SYNC_DIR=$(mktemp -d /tmp/showpane-file-sync.XXXXXX)
-  echo \"$SYNC_PLAN_RESPONSE\" | python3 -c '
-import json, sys
-for item in json.load(sys.stdin).get(\"missing\", []):
-    print(\"\\t\".join([
-        item[\"storagePath\"],
-        item[\"portalSlug\"],
-        item[\"filename\"],
-        item[\"mimeType\"],
-        str(item[\"size\"]),
-        item[\"uploadedBy\"],
-        item[\"uploadedAt\"],
-        item[\"checksum\"],
-    ]))
-' | while IFS=$'\t' read -r STORAGE_PATH PORTAL_SLUG FILE_NAME MIME_TYPE FILE_SIZE UPLOADED_BY UPLOADED_AT CHECKSUM; do
-    TMP_FILE="$TMP_SYNC_DIR/$CHECKSUM"
-    cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/materialize-file.ts" --storage-path "$STORAGE_PATH" --output "$TMP_FILE"
-    curl -s -X POST "$CLOUD_API_BASE/api/files/upload" \
-      -H "Authorization: Bearer $CLOUD_API_TOKEN" \
-      -F "file=@$TMP_FILE;type=$MIME_TYPE" \
-      -F "storagePath=$STORAGE_PATH" \
-      -F "portalSlug=$PORTAL_SLUG" \
-      -F "filename=$FILE_NAME" \
-      -F "mimeType=$MIME_TYPE" \
-      -F "size=$FILE_SIZE" \
-      -F "uploadedBy=$UPLOADED_BY" \
-      -F "uploadedAt=$UPLOADED_AT" \
-      -F "checksum=$CHECKSUM" \
-      >/dev/null || exit 1
-  done
-fi
-```
-
-### Cloud Step 7: Start the staged deployment
-
-```bash
-PORTAL_COUNT=$(cd "$APP_PATH" && NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$APP_PATH/tsconfig.json" "$SKILL_DIR/bin/list-portals.ts" \
-  | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('portals', [])))")
-
-INIT_RESPONSE=$(curl -s -X POST "$CLOUD_API_BASE/api/deployments" \
-  -H "Authorization: Bearer $CLOUD_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data-binary '{}')
-
-echo \"$INIT_RESPONSE\" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-if 'error' in d:
-    print('ERROR: ' + str(d['error']))
-    sys.exit(1)
-print('Deployment initialized')
-print('ID: ' + d.get('deploymentId', 'unknown'))
-print('Status: ' + d.get('status', 'unknown'))
-"
-```
-
-Extract the deployment ID and the presigned artifact upload URL from the response. If the API returns an error, show it and stop.
-
-### Cloud Step 8: Upload the artifact directly to storage
-
-```bash
-DEPLOY_ID=$(echo "$INIT_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('deploymentId',''))")
-ARTIFACT_UPLOAD_URL=$(echo "$INIT_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('artifactUploadUrl',''))")
-
-if [ -z "$DEPLOY_ID" ] || [ -z "$ARTIFACT_UPLOAD_URL" ]; then
-  echo "ERROR: Missing deploymentId or artifact upload URL"
-  exit 1
-fi
-
-UPLOAD_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$ARTIFACT_UPLOAD_URL" \
-  -H "Content-Type: application/zip" \
-  --data-binary @"$ARTIFACT_PATH" \
-)
-
-if [ "$UPLOAD_STATUS" != "200" ]; then
-  echo "ERROR: Artifact upload failed with HTTP $UPLOAD_STATUS"
-  exit 1
-fi
-```
-
-### Cloud Step 9: Finalize the deployment
-
-```bash
-FINALIZE_PAYLOAD="/tmp/showpane-deploy-finalize-${DEPLOY_ID}.json"
-python3 - <<'PY' "$RUNTIME_DATA_PATH" "$PORTAL_COUNT" > "$FINALIZE_PAYLOAD"
-import json, sys
-runtime_path = sys.argv[1]
-portal_count = int(sys.argv[2])
-payload = {
-  "portalCount": portal_count,
-  "runtimeData": json.load(open(runtime_path)),
-}
-print(json.dumps(payload))
-PY
-
-FINALIZE_RESPONSE=$(curl -s -X POST "$CLOUD_API_BASE/api/deployments/$DEPLOY_ID/finalize" \
-  -H "Authorization: Bearer $CLOUD_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data-binary @"$FINALIZE_PAYLOAD")
-
-echo "$FINALIZE_RESPONSE" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-if 'error' in d:
-    print('ERROR: ' + str(d['error']))
-    sys.exit(1)
-print('Deployment accepted')
-print('ID: ' + d.get('deploymentId', 'unknown'))
-print('Status: ' + d.get('status', 'unknown'))
-"
-```
-
-### Cloud Step 10: Wait for cloud publish to finish
-
-Poll Showpane Cloud until the deployment reaches `live` or `failed`:
-
-```bash
-echo "Waiting for deployment to go live..."
-for i in $(seq 1 60); do
-  sleep 5
-  STATUS=$(curl -s \
-    -H "Authorization: Bearer $CLOUD_API_TOKEN" \
-    "$CLOUD_API_BASE/api/deployments/$DEPLOY_ID" \
-    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','unknown'))")
-
-  echo "  Status: $STATUS"
-
-  if [ "$STATUS" = "live" ]; then
-    echo "Deployment is live!"
-    break
-  fi
-
-  if [ "$STATUS" = "failed" ] || [ "$STATUS" = "unhealthy" ]; then
-    echo "ERROR: Deployment failed with status: $STATUS"
-    curl -s \
-      -H "Authorization: Bearer $CLOUD_API_TOKEN" \
-      "$CLOUD_API_BASE/api/deployments/$DEPLOY_ID"
-    exit 1
-  fi
-done
-
-if [ "$STATUS" != "live" ]; then
-  echo "WARNING: Deployment did not become ready within 5 minutes."
-  echo "Check Showpane Cloud for status."
-fi
-```
-
-The publish typically takes 15-60 seconds. Poll every 5 seconds for up to 5 minutes.
-
-### Cloud Step 11: Post-deploy verification
-
-Once the deployment is live, verify the portal is accessible:
-
-```bash
-PORTAL_URL="${CLOUD_PORTAL_URL:-https://$CLOUD_ORG_SLUG.showpane.com}"
-
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL")
-echo "Health check: $PORTAL_URL -> HTTP $HTTP_CODE"
-```
-
-Expected: HTTP 200. If not 200, warn the user but do not treat it as a fatal error — DNS propagation or edge caching may cause a brief delay.
-
-Also check the API health endpoint:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL/api/health"
-```
-
-### Cloud Step 12: Deployment summary
-
-Print a clear summary:
-
-```
-Cloud deploy complete!
-
-  Mode:       cloud
-  Type check: passed
-  Build:      .vercel/output/ (N files)
-  Portals:    N active
   Status:     live
-  Health:     OK (200)
-
-  Portal URL: https://orgslug.showpane.com
   Deploy ID:  dep_xxxxxxxxxxxx
+  Live URL:   https://orgslug.showpane.com
+  Portals:    N
+  File sync:  N
 ```
 
-### Cloud Step 13: Record deployment
+### Cloud Step 4: Record deployment
 
 Log the cloud deployment for operational memory:
 
 ```bash
-echo '{"skill":"portal-deploy","key":"deploy","insight":"Cloud deploy to '$CLOUD_ORG_SLUG'.showpane.com. Migrations: <count>. Portals: <count> active. Deploy ID: '$DEPLOY_ID'.","confidence":10,"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> "$HOME/.showpane/learnings.jsonl"
+DEPLOY_ID=$(echo "$DEPLOY_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('deploymentId',''))")
+PORTAL_COUNT=$(echo "$DEPLOY_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('portalCount',0))")
+echo '{"skill":"portal-deploy","key":"deploy","insight":"Cloud deploy to '$CLOUD_ORG_SLUG'.showpane.com. Portals: '$PORTAL_COUNT' active. Deploy ID: '$DEPLOY_ID'.","confidence":10,"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> "$HOME/.showpane/learnings.jsonl"
 ```
 
-### Cloud Step 14: Clean up
-
-Remove the temporary artifact:
-
-```bash
-rm -f "$ARTIFACT_PATH"
-rm -f "$RUNTIME_DATA_PATH"
-rm -f "$FILE_MANIFEST_PATH"
-rm -f "$FINALIZE_PAYLOAD"
-[ -n "${TMP_SYNC_DIR:-}" ] && rm -rf "$TMP_SYNC_DIR"
-```
-
----
-
-## Post-Deploy Verification
-
-After deployment succeeds, automatically run these verification steps. Do not ask the user — just do them.
-
-### Step V1: DNS/URL Check
-Fetch the portal URL and verify it returns 200:
-```bash
-PORTAL_URL="${CLOUD_PORTAL_URL:-https://$CLOUD_ORG_SLUG.showpane.com}"
-echo "Verifying $PORTAL_URL..."
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL" 2>/dev/null)
-echo "HTTP status: $HTTP_CODE"
-```
-If not 200, warn but don't fail — DNS propagation may take time for cloud deploys.
-
-### Step V2: Portal Content Check
-If portals exist in the database, verify at least one portal login page loads:
-```bash
-# Get the first active portal slug
-FIRST_SLUG=$(cd "$APP_PATH" && npx tsx -e "
-  const { prisma } = require('./src/lib/db');
-  prisma.clientPortal.findFirst({ where: { isActive: true }, select: { slug: true } })
-    .then(p => console.log(p?.slug || ''))
-    .finally(() => prisma.\$disconnect());
-" 2>/dev/null)
-if [ -n "$FIRST_SLUG" ]; then
-  echo "Checking portal: $PORTAL_URL/client/$FIRST_SLUG"
-  curl -s -o /dev/null -w "Portal login page: %{http_code}\n" "$PORTAL_URL/client/$FIRST_SLUG" 2>/dev/null
-fi
-```
-
-### Step V3: SSL Check (cloud only)
-For cloud deploys, verify SSL is working:
-```bash
-if [ "$DEPLOY_MODE" = "cloud" ] && [ -n "$CLOUD_PORTAL_URL" ]; then
-  echo "Checking SSL..."
-  SSL_OK=$(curl -s -o /dev/null -w "%{http_code}" "https://${CLOUD_ORG_SLUG}.showpane.com" 2>/dev/null)
-  echo "SSL status: $SSL_OK"
-fi
-```
-
-### Step V4: Summary
-Print a deployment summary:
-```
-✓ Deployed successfully
-  URL:     [portal URL]
-  Portals: [count]
-  SSL:     [ok/pending]
-  
-Next: /portal-status for ongoing monitoring
-```
+The deploy command already handles cleanup and hosted verification. Do not duplicate those steps here.
 
 ---
 

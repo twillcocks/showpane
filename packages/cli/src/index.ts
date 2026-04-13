@@ -175,6 +175,10 @@ function printClaudeUsage() {
   console.log("Usage: showpane claude [--project <name-or-path>] [--yes --name <company> --full-name <name> --work-email <email> [--website <domain>]] [--verbose]");
 }
 
+function printDeployUsage() {
+  console.log("Usage: showpane deploy [--wait] [--json]");
+}
+
 function printBanner() {
   const banner = `
 ${BOLD}${WHITE}  ███████╗██╗  ██╗ ██████╗ ██╗    ██╗██████╗  █████╗ ███╗   ██╗███████╗
@@ -1051,6 +1055,23 @@ function findFreePort(startPort: number): Promise<number> {
 
 function getPackageRoot() {
   return resolve(dirname(fileURLToPath(import.meta.url)), "..");
+}
+
+function ensureCurrentToolchain(packageRoot: string) {
+  const bundleRoot = getLocalBundleRoot(packageRoot);
+  const showpaneVersion = getPackageVersion(packageRoot);
+  const currentDeployScript = join(CURRENT_TOOLCHAIN_LINK, "bin", "deploy-to-cloud.ts");
+  const bundledDeployScript = join(bundleRoot, "toolchain", "bin", "deploy-to-cloud.ts");
+
+  if (
+    existsSync(currentDeployScript) &&
+    existsSync(bundledDeployScript) &&
+    hashFile(currentDeployScript) === hashFile(bundledDeployScript)
+  ) {
+    return;
+  }
+
+  syncToolchain(bundleRoot, showpaneVersion, false);
 }
 
 function getPackageVersion(packageRoot: string) {
@@ -2152,6 +2173,154 @@ async function login() {
   process.exit(1);
 }
 
+function parseDeployArgs(args: string[]) {
+  for (const arg of args) {
+    if (arg === "--wait" || arg === "--json" || arg === "--help") {
+      continue;
+    }
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  return {
+    wait: args.includes("--wait"),
+    json: args.includes("--json"),
+    help: args.includes("--help"),
+  };
+}
+
+type DeployCommandResult = {
+  ok: true;
+  deploymentId: string;
+  status: string;
+  liveUrl: string | null;
+  inspectorUrl: string | null;
+  portalCount: number;
+  firstPortalSlug: string | null;
+  fileSyncCount: number;
+  verification: {
+    portalStatus: number | null;
+    healthStatus: number | null;
+  };
+};
+
+type DeployCommandFailure = {
+  ok: false;
+  step: string;
+  error: string;
+  detail?: unknown;
+};
+
+async function deployProject(args: string[]) {
+  const { wait, json, help } = parseDeployArgs(args);
+  if (help) {
+    printDeployUsage();
+    process.exit(0);
+  }
+
+  const packageRoot = getPackageRoot();
+  ensureCurrentToolchain(packageRoot);
+  ensureShowpaneShim();
+
+  const config = readShowpaneConfig();
+  const currentWorkspace =
+    findWorkspaceRoot(process.cwd()) ??
+    (config.app_path ? findWorkspaceRoot(config.app_path) ?? resolve(config.app_path) : null);
+
+  if (!currentWorkspace) {
+    throw new Error("No Showpane workspace found. Run this inside a Showpane project, or set one up first.");
+  }
+
+  const scriptPath = join(CURRENT_TOOLCHAIN_LINK, "bin", "deploy-to-cloud.ts");
+  if (!existsSync(scriptPath)) {
+    throw new Error("Current Showpane toolchain is missing deploy-to-cloud.ts. Run `showpane sync`.");
+  }
+
+  const child = spawn(
+    "npx",
+    [
+      "tsx",
+      "--tsconfig",
+      join(CURRENT_TOOLCHAIN_LINK, "bin", "tsconfig.json"),
+      scriptPath,
+      "--app-path",
+      currentWorkspace,
+      "--json",
+      ...(wait ? ["--wait"] : []),
+    ],
+    {
+      cwd: currentWorkspace,
+      env: {
+        ...process.env,
+        SHOWPANE_APP_PATH: currentWorkspace,
+        SHOWPANE_CLOUD_URL: API_BASE,
+      },
+      stdio: ["ignore", "pipe", "inherit"],
+    },
+  );
+
+  let stdout = "";
+  child.stdout?.on("data", (chunk) => {
+    stdout += chunk.toString();
+  });
+
+  const exitCode = await new Promise<number>((resolveExit, rejectExit) => {
+    child.on("error", rejectExit);
+    child.on("close", (code) => resolveExit(code ?? 1));
+  });
+
+  let parsed: DeployCommandResult | DeployCommandFailure | null = null;
+  if (stdout.trim()) {
+    try {
+      parsed = JSON.parse(stdout.trim());
+    } catch {
+      parsed = null;
+    }
+  }
+
+  if (exitCode !== 0 || !parsed || !parsed.ok) {
+    if (json && parsed && !parsed.ok) {
+      process.stdout.write(`${JSON.stringify(parsed)}\n`);
+      process.exit(exitCode || 1);
+    }
+    const message =
+      parsed && !parsed.ok
+        ? parsed.step
+          ? `${parsed.step}: ${parsed.error}`
+          : parsed.error
+        : "Cloud deploy failed.";
+    throw new Error(message);
+  }
+
+  config.deploy_mode = "cloud";
+  if (parsed.liveUrl) {
+    config.portalUrl = parsed.liveUrl;
+  }
+  updateWorkspaceFromConfig(config, currentWorkspace, {
+    name: basename(currentWorkspace),
+    deployMode: "cloud",
+    orgSlug: typeof config.orgSlug === "string" ? config.orgSlug : "",
+  });
+  writeShowpaneConfig(config);
+
+  if (json) {
+    process.stdout.write(`${JSON.stringify(parsed)}\n`);
+    return;
+  }
+
+  console.log();
+  green("Cloud deploy finished");
+  console.log(`  ${BOLD}Deploy ID:${RESET} ${parsed.deploymentId}`);
+  console.log(`  ${BOLD}Status:${RESET}    ${parsed.status}`);
+  console.log(`  ${BOLD}URL:${RESET}       ${parsed.liveUrl ?? "pending"}`);
+  console.log(`  ${BOLD}Portals:${RESET}   ${parsed.portalCount}`);
+  console.log(`  ${BOLD}File sync:${RESET} ${parsed.fileSyncCount}`);
+  if (parsed.verification.portalStatus !== null || parsed.verification.healthStatus !== null) {
+    console.log(
+      `  ${BOLD}Verify:${RESET}    portal=${parsed.verification.portalStatus ?? "n/a"} health=${parsed.verification.healthStatus ?? "n/a"}`
+    );
+  }
+}
+
 const command = process.argv[2];
 const packageRoot = getPackageRoot();
 
@@ -2162,7 +2331,7 @@ if (process.argv.includes("--version")) {
 
 if (process.argv.length <= 2 && process.argv.includes("--help")) {
   printCreateUsage();
-  console.log("Commands: claude, login, projects, sync, upgrade");
+  console.log("Commands: claude, deploy, login, projects, sync, upgrade");
   process.exit(0);
 }
 
@@ -2187,6 +2356,11 @@ if (command === "login") {
     error(String(err));
     process.exit(1);
   }
+} else if (command === "deploy") {
+  deployProject(process.argv.slice(3)).catch((err) => {
+    error(String(err));
+    process.exit(1);
+  });
 } else if (command === "sync") {
   syncCurrentToolchain().catch((err) => {
     error(String(err));

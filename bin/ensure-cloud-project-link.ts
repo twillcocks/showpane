@@ -10,6 +10,8 @@ type OrganizationNotReadyPayload = {
   orgSlug: string;
   reason: string;
   nextAction: string;
+  retryable: boolean;
+  retryAfterMs?: number;
 };
 
 type ShowpaneConfig = {

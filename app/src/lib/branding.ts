@@ -5,6 +5,36 @@
  */
 
 /**
+ * Normalize a website or bare domain into an https URL.
+ */
+export function normalizeWebsiteUrl(value?: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    return new URL(candidate).toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extract a hostname from a website URL or bare domain.
+ */
+export function getDomainFromWebsite(value?: string | null): string | null {
+  const normalized = normalizeWebsiteUrl(value);
+  if (!normalized) return null;
+
+  try {
+    return new URL(normalized).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch a company logo URL from a domain.
  * Uses Clearbit Logo API (free, no key required).
  * Falls back to a UI Avatars URL with the company initial.
@@ -17,6 +47,23 @@ export function getLogoUrl(domain: string, fallbackName?: string): string {
   // Fallback: initial-based avatar via ui-avatars.com
   const initial = (fallbackName || "?")[0].toUpperCase();
   return `https://ui-avatars.com/api/?name=${initial}&background=111827&color=fff&size=128&bold=true`;
+}
+
+/**
+ * Resolve the best available logo source for a brand.
+ * Prefers a stored logo URL, then a website-derived domain, then initials.
+ */
+export function getBrandLogoUrl(options: {
+  logoUrl?: string | null;
+  websiteUrl?: string | null;
+  fallbackName: string;
+}): string {
+  if (options.logoUrl) {
+    return options.logoUrl;
+  }
+
+  const domain = getDomainFromWebsite(options.websiteUrl);
+  return getLogoUrl(domain ?? "", options.fallbackName);
 }
 
 /**

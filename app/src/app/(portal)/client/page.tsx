@@ -1,5 +1,5 @@
 import { PortalLogin } from "@/components/portal-login";
-import { getInitialLogo } from "@/lib/branding";
+import { getBrandLogoUrl } from "@/lib/branding";
 import { prisma } from "@/lib/db";
 import { resolveDefaultOrganizationId } from "@/lib/client-portals";
 import { getRuntimePortalBySlug, getRuntimeState, isRuntimeSnapshotMode } from "@/lib/runtime-state";
@@ -12,12 +12,13 @@ export default async function ClientLogin({
   const params = (await searchParams) ?? {};
   const portalSlug = params.portal?.trim() || null;
 
-  let companyName = "Your Portal";
+  let companyName = "Showpane";
   let companyUrl = "https://showpane.com";
   let supportEmail = "support@showpane.com";
   let portalLabel = "Client Portal";
   let description = "Private portal access. Sign in with the credentials you were sent.";
-  let companyInitial = "P";
+  let companyLogoSrc: string | null = null;
+  let companyLogoAlt = companyName;
 
   if (portalSlug) {
     try {
@@ -25,10 +26,16 @@ export default async function ClientLogin({
         const state = await getRuntimeState();
         const portal = await getRuntimePortalBySlug(portalSlug);
         if (portal) {
-          companyName = portal.companyName;
-          portalLabel = `${portal.companyName} Portal`;
-          description = `Private portal for ${portal.companyName}. Sign in with the credentials you were sent.`;
-          companyInitial = portal.companyName[0]?.toUpperCase() || "P";
+          const orgName = state?.organization?.name || companyName;
+          companyName = orgName;
+          companyLogoAlt = orgName;
+          portalLabel = state?.organization?.portalLabel || `${orgName} Portal`;
+          description = `Private portal created by ${orgName} for ${portal.companyName}. Sign in with the credentials you were sent.`;
+          companyLogoSrc = getBrandLogoUrl({
+            logoUrl: state?.organization?.logoUrl,
+            websiteUrl: state?.organization?.websiteUrl,
+            fallbackName: orgName,
+          });
           if (state?.organization?.websiteUrl) {
             companyUrl = state.organization.websiteUrl;
           }
@@ -45,11 +52,15 @@ export default async function ClientLogin({
               slug: portalSlug,
               isActive: true,
             },
-            select: { companyName: true },
+            select: {
+              companyName: true,
+            },
           });
           const organization = await prisma.organization.findUnique({
             where: { id: organizationId },
             select: {
+              name: true,
+              logoUrl: true,
               websiteUrl: true,
               supportEmail: true,
               portalLabel: true,
@@ -57,10 +68,16 @@ export default async function ClientLogin({
           });
 
           if (portal) {
-            companyName = portal.companyName;
-            portalLabel = organization?.portalLabel || `${portal.companyName} Portal`;
-            description = `Private portal for ${portal.companyName}. Sign in with the credentials you were sent.`;
-            companyInitial = portal.companyName[0]?.toUpperCase() || "P";
+            const orgName = organization?.name || companyName;
+            companyName = orgName;
+            companyLogoAlt = orgName;
+            portalLabel = organization?.portalLabel || `${orgName} Portal`;
+            description = `Private portal created by ${orgName} for ${portal.companyName}. Sign in with the credentials you were sent.`;
+            companyLogoSrc = getBrandLogoUrl({
+              logoUrl: organization?.logoUrl,
+              websiteUrl: organization?.websiteUrl,
+              fallbackName: orgName,
+            });
           }
           if (organization?.websiteUrl) {
             companyUrl = organization.websiteUrl;
@@ -79,9 +96,19 @@ export default async function ClientLogin({
     <PortalLogin
       companyName={companyName}
       companyLogo={
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-900">
-          <span className="text-xs font-bold text-white">{companyInitial}</span>
-        </div>
+        companyLogoSrc ? (
+          <img
+            src={companyLogoSrc}
+            alt={companyLogoAlt}
+            className="h-7 w-7 rounded-lg object-cover"
+          />
+        ) : (
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-900">
+            <span className="text-xs font-bold text-white">
+              {companyName[0]?.toUpperCase() || "S"}
+            </span>
+          </div>
+        )
       }
       companyUrl={companyUrl}
       supportEmail={supportEmail}

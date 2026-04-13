@@ -99,9 +99,9 @@ If `RECENT_SKILLS` is shown, suggest the likely next skill:
 
 If `RECENT_LEARNINGS` is shown, review them before proceeding. Apply them where relevant but do not mention them unless they materially affect the current task.
 
-Read `skills/shared/runtime-principles.md` once near the start of the skill and apply the relevant product defaults.
+Read `skills/shared/runtime-principles.md` directly from that exact path near the start of the skill and apply the relevant product defaults.
 
-If `skills/shared/platform-constraints.md` exists, read it once near the start of the skill and apply only the relevant limits.
+If `skills/shared/platform-constraints.md` exists, read it directly from that exact path near the start of the skill and apply only the relevant limits. No directory listing is needed first.
 
 ## Overview
 
@@ -278,6 +278,7 @@ During this phase:
 
 - suggest a slug if needed
 - prefer a real company/client name in the portal
+- if the client website is not already obvious, do one quick best-effort domain lookup and suggest the result briefly before drafting
 - prefer useful structure over completeness
 - aim for a credible first draft, not a perfect final artifact
 - do not re-ask for the company name or template if the user already chose them
@@ -380,6 +381,7 @@ Save checkpoint with phase `access-ready` and `accessMode`.
 ### Phase 8: Publish to Showpane Cloud
 
 Run the `portal-deploy` flow inline.
+Let the deploy command stream its own progress. Do not wrap the long-running publish step in `tail`.
 
 This phase is part of onboarding by default. Do not treat publish as an optional
 afterthought unless the user explicitly says they want to stop at local preview.

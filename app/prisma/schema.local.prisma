@@ -69,6 +69,7 @@ model ClientPortal {
   organizationId    String
   slug              String
   companyName       String
+  websiteUrl        String?
   logoUrl           String?
 
   // Auth

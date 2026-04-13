@@ -1,4 +1,5 @@
 import { PrismaClient } from "@/lib/prisma-client";
+import { getBrandLogoUrl, normalizeWebsiteUrl } from "@/lib/branding";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 
@@ -16,7 +17,7 @@ async function main() {
   const args = process.argv.slice(2);
 
   if (args.includes("--help")) {
-    console.log("Usage: create-portal --slug <slug> --company <name> --org-id <orgId>");
+    console.log("Usage: create-portal --slug <slug> --company <name> --org-id <orgId> [--website <domain-or-url>]");
     console.log("Creates a new client portal with auto-generated credentials.");
     process.exit(0);
   }
@@ -25,6 +26,7 @@ async function main() {
   const slug = getArg("--slug");
   const company = getArg("--company");
   const orgId = getArg("--org-id");
+  const website = getArg("--website");
 
   if (!slug || !company || !orgId) fail("Missing --slug, --company, or --org-id");
 
@@ -37,6 +39,11 @@ async function main() {
   const username = slug;
   const password = crypto.randomBytes(16).toString("base64url");
   const passwordHash = await bcrypt.hash(password, 10);
+  const websiteUrl = normalizeWebsiteUrl(website);
+  const logoUrl = getBrandLogoUrl({
+    websiteUrl,
+    fallbackName: company,
+  });
 
   const prisma = new PrismaClient();
   try {
@@ -46,19 +53,51 @@ async function main() {
     });
     if (existing) fail(`Slug "${slug}" already exists`);
 
-    const portal = await prisma.clientPortal.create({
-      data: {
-        organizationId: orgId,
-        slug,
-        companyName: company,
-        username,
-        passwordHash,
-      },
-    });
+    const createData: Record<string, unknown> = {
+      organizationId: orgId,
+      slug,
+      companyName: company,
+      logoUrl,
+      username,
+      passwordHash,
+    };
+
+    // Older scaffolded apps may not have the ClientPortal.websiteUrl column yet.
+    if (websiteUrl) {
+      createData.websiteUrl = websiteUrl;
+    }
+
+    let portal;
+    try {
+      portal = await prisma.clientPortal.create({
+        data: createData,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (
+        websiteUrl &&
+        (message.includes("Unknown arg `websiteUrl`") ||
+          message.includes("Unknown argument `websiteUrl`"))
+      ) {
+        delete createData.websiteUrl;
+        portal = await prisma.clientPortal.create({
+          data: createData,
+        });
+      } else {
+        throw error;
+      }
+    }
 
     console.log(JSON.stringify({
       ok: true,
-      portal: { id: portal.id, slug: portal.slug, username, password },
+      portal: {
+        id: portal.id,
+        slug: portal.slug,
+        username,
+        password,
+        websiteUrl: portal.websiteUrl,
+        logoUrl: portal.logoUrl,
+      },
     }));
   } finally {
     await prisma.$disconnect();

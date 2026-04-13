@@ -102,9 +102,9 @@ If `RECENT_SKILLS` is shown, suggest the likely next skill:
 
 If `RECENT_LEARNINGS` is shown, review them before proceeding. Apply them where relevant but do not mention them unless they materially affect the current task.
 
-Read `skills/shared/runtime-principles.md` once near the start of the skill and apply the relevant product defaults.
+Read `skills/shared/runtime-principles.md` directly from that exact path near the start of the skill and apply the relevant product defaults.
 
-If `skills/shared/platform-constraints.md` exists, read it once near the start of the skill and apply only the relevant limits.
+If `skills/shared/platform-constraints.md` exists, read it directly from that exact path near the start of the skill and apply only the relevant limits. No directory listing is needed first.
 
 ## Steps
 
@@ -168,11 +168,14 @@ Run list-portals and warn about portals missing credentials. This is a warning, 
 ### Cloud Step 2: Run the canonical deploy command
 
 Use the built-in deploy command instead of reimplementing the staged cloud protocol in shell.
+Run it directly so progress lines stay visible while the build and publish are in flight.
 
 ```bash
-DEPLOY_JSON=$(cd "$APP_PATH" && SHOWPANE_APP_PATH="$APP_PATH" NODE_PATH="$APP_PATH/node_modules" npx tsx --tsconfig "$SKILL_DIR/bin/tsconfig.json" "$SKILL_DIR/bin/deploy-to-cloud.ts" --app-path "$APP_PATH" --wait --json)
+DEPLOY_JSON=$(cd "$APP_PATH" && SHOWPANE_APP_PATH="$APP_PATH" "$SHOWPANE_BIN/showpane" deploy --wait --json)
 echo "$DEPLOY_JSON"
 ```
+
+Do not wrap this command in `tail` or another truncating pipe. If you need a shorter summary later, capture the output after the command finishes or read from a temp log separately.
 
 That command already owns:
 - type check

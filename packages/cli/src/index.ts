@@ -974,9 +974,13 @@ async function syncCloudProjectLink(projectRoot: string, accessToken: string) {
 }
 
 function removePath(targetPath: string) {
-  if (!existsSync(targetPath)) return;
+  let stat: ReturnType<typeof lstatSync>;
+  try {
+    stat = lstatSync(targetPath);
+  } catch {
+    return;
+  }
 
-  const stat = lstatSync(targetPath);
   if (stat.isSymbolicLink() || stat.isFile()) {
     unlinkSync(targetPath);
     return;

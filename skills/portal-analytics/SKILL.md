@@ -99,9 +99,9 @@ If `RECENT_SKILLS` is shown, suggest the likely next skill:
 
 If `RECENT_LEARNINGS` is shown, review them before proceeding. Apply them where relevant but do not mention them unless they materially affect the current task.
 
-Read `skills/shared/runtime-principles.md` once near the start of the skill and apply the relevant product defaults.
+Read `skills/shared/runtime-principles.md` directly from that exact path near the start of the skill and apply the relevant product defaults.
 
-If `skills/shared/platform-constraints.md` exists, read it once near the start of the skill and apply only the relevant limits.
+If `skills/shared/platform-constraints.md` exists, read it directly from that exact path near the start of the skill and apply only the relevant limits. No directory listing is needed first.
 
 ## Overview
 

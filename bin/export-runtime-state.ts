@@ -51,6 +51,7 @@ async function main() {
       select: {
         slug: true,
         companyName: true,
+        websiteUrl: true,
         logoUrl: true,
         username: true,
         passwordHash: true,

@@ -4,6 +4,7 @@ import {
   ANALYTICS_METADATA_KEYS,
   ORGANIZATION_NOT_READY_ERROR,
   ORGANIZATION_REQUIRED_ERROR,
+  type OrganizationNotReadyPayload,
   isPortalEventType,
   toCloudPortalEventPayload,
 } from "@/lib/portal-contracts";
@@ -35,5 +36,24 @@ describe("portal contracts", () => {
   it("exports the shared cloud auth error codes", () => {
     expect(ORGANIZATION_REQUIRED_ERROR).toBe("organization_required");
     expect(ORGANIZATION_NOT_READY_ERROR).toBe("organization_not_ready");
+  });
+
+  it("keeps retry metadata on not-ready payloads", () => {
+    const payload: OrganizationNotReadyPayload = {
+      code: ORGANIZATION_NOT_READY_ERROR,
+      error: "Still provisioning",
+      orgSlug: "acme",
+      provisioningStatus: "provisioning",
+      subscriptionStatus: "trialing",
+      isActive: true,
+      retryable: true,
+      retryAfterMs: 3_000,
+      settingsUrl: "/dashboard/settings",
+      nextAction: "wait_for_provisioning",
+      reason: "provisioning",
+    };
+
+    expect(payload.retryable).toBe(true);
+    expect(payload.retryAfterMs).toBe(3_000);
   });
 });

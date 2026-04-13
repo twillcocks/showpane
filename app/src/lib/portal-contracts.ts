@@ -40,6 +40,8 @@ export interface OrganizationNotReadyPayload {
   provisioningStatus: string | null;
   subscriptionStatus: string | null;
   isActive: boolean;
+  retryable: boolean;
+  retryAfterMs?: number;
   checkoutUrl?: string;
   settingsUrl: string;
   nextAction: WorkspaceNextAction;

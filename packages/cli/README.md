@@ -8,6 +8,13 @@ CLI for [Showpane](https://showpane.com) — AI-generated client portals.
 npx showpane
 ```
 
+## Quick Reference
+
+```bash
+npx showpane --help
+npx showpane --version
+```
+
 ## Commands
 
 ### `npx showpane` (default)
@@ -16,7 +23,10 @@ Scaffold a new Showpane portal project. Unpacks a version-pinned scaffold, insta
 Flags:
 
 - `--name <company>` — provide the company name non-interactively
-- `--yes` — skip prompts when paired with `--name`
+- `--full-name <name>` — contact name for the generated workspace
+- `--work-email <email>` — contact email for the generated workspace
+- `--website <domain>` — optional company website/domain
+- `--yes` — skip prompts when paired with `--name`, `--full-name`, and `--work-email`
 - `--no-open` — do not open the local app in the browser
 - `--verbose` — stream raw install logs instead of the quiet installer view
 
@@ -31,11 +41,23 @@ Resume your Showpane workspace by launching Claude Code in the right project dir
 Flags:
 
 - `--project <name-or-path>` — open a specific remembered workspace
-- `--yes` / `--name <company>` — only used when no workspace exists yet and Showpane needs to create the first one
+- `--name <company>` — only used when no workspace exists yet and Showpane needs to create the first one
+- `--full-name <name>` — contact name for first-time workspace creation
+- `--work-email <email>` — contact email for first-time workspace creation
+- `--website <domain>` — optional website/domain for first-time workspace creation
+- `--yes` — skip prompts when paired with the required first-time creation flags
 - `--verbose` — show raw setup logs during first-time onboarding
 
 ### `showpane projects`
 List remembered Showpane workspaces and show which one is currently active for global skills.
+
+### `showpane deploy`
+Publish the current Showpane workspace to Showpane Cloud.
+
+Flags:
+
+- `--wait` — block until the remote deploy finishes
+- `--json` — emit machine-readable deploy output
 
 ### `showpane sync`
 Install or refresh the global Showpane toolchain and Claude Code skills for the current CLI version.

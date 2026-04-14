@@ -1,5 +1,14 @@
 # Changelog
 
+This repo currently ships multiple versioned artifacts:
+
+- **Workspace/toolchain:** `1.1.8` (`/VERSION`)
+- **App scaffold:** `0.2.7` (`app/VERSION`)
+- **Skill pack:** `1.1.7` (`skills/VERSION`)
+- **npm CLI:** `0.4.29` (`packages/cli/package.json`)
+
+The release notes below are product/app notes across `showpane` and `showpane-cloud`; they do not map 1:1 to the npm CLI version.
+
 ## 0.2.8 (2026-04-12)
 
 ### Fixed — Portal Create Handoff

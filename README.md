@@ -2,20 +2,29 @@
 
 Generate professional client portals in minutes using Claude Code.
 
+## Current Versions
+
+- **Workspace/toolchain:** `1.1.8`
+- **App scaffold:** `0.2.7`
+- **Skill pack:** `1.1.7`
+- **npm CLI:** `0.4.29`
+
 ## Quick Start
 
 ```bash
 npx showpane
 ```
 
-One command sets up everything: SQLite database, dependencies, dev server. Your browser opens to a welcome page that teaches you the next step.
+One command sets up everything: SQLite database, dependencies, and the local dev server. Your browser opens to a welcome page that teaches you the next step.
 
-Then open the generated project:
+Then open a new terminal, move into the generated project, and start Claude there:
 
 ```bash
 cd showpane-<your-company-slug>
-claude
+showpane claude
 ```
+
+If `showpane` is not on your `PATH` yet, use `npx showpane claude` instead.
 
 Then in Claude Code, the recommended first-run path is:
 
@@ -43,11 +52,25 @@ npx showpane
 ### Showpane Cloud ($29/mo)
 Hosted at `orgname.showpane.com` with engagement intelligence.
 
-```
-claude /portal-deploy
+Authenticate once:
+
+```bash
+showpane login
 ```
 
-**Cloud includes:** Real-time activity feed, visitor tracking, per-section time analytics, email alerts, team access (multiple operators), 1-year analytics retention.
+Then publish from Claude Code:
+
+```
+/portal-deploy
+```
+
+Or publish from the workspace shell:
+
+```bash
+showpane deploy --wait
+```
+
+**Cloud includes:** Hosted activity feed, visitor tracking, per-section time analytics, email alerts, and team access for multiple operators.
 The local app builds the portal, then Showpane Cloud publishes it on your behalf. OSS does not need to reason about provider projects directly.
 
 ## Skills
@@ -81,7 +104,23 @@ Three portal templates for common use cases:
 
 Templates are reference implementations. `/portal-create` reads them for inspiration and generates bespoke content tailored to each client.
 
-## Development (Repo)
+## Development
+
+### Repo Setup
+
+Install the local repo toolchain and Claude skills from this checkout:
+
+```bash
+./setup
+```
+
+For the cloud-auth bootstrap path from the repo checkout:
+
+```bash
+./setup --cloud
+```
+
+### App Development
 
 ```bash
 cd app
@@ -94,6 +133,15 @@ npm run dev
 ```
 
 Bare Prisma CLI commands in `app/` follow `DATABASE_URL`. The supported local workflow keeps this on SQLite.
+
+### CLI Development
+
+```bash
+cd packages/cli
+npm install
+npm run build
+npm test
+```
 
 ## Architecture
 
@@ -111,10 +159,12 @@ Bare Prisma CLI commands in `app/` follow `DATABASE_URL`. The supported local wo
 showpane/
 ├── app/             — Next.js portal application (OSS)
 ├── packages/cli/    — npx showpane installer
+├── packages/portal-contracts/ — shared portal/cloud contract types
 ├── skills/          — 14 SKILL.md files (Claude Code slash commands)
 ├── bin/             — TypeScript utility scripts (DB operations)
 ├── templates/       — Portal reference implementations
-├── setup            — Manual installation script
+├── scripts/         — repo maintenance scripts
+├── setup            — repo-local setup/bootstrap script
 └── DESIGN.md        — Design system tokens and patterns
 ```
 
@@ -130,7 +180,10 @@ The hosted platform at app.showpane.com lives in the separate `showpane-cloud` r
 - Engagement dashboard with real-time activity feed
 - CLI device auth for `./setup --cloud`
 
+## Self-Hosting
+
+`showpane deploy` targets Showpane Cloud. Self-hosting the OSS app is possible, but it is an advanced manual path rather than a supported first-run workflow. See [SELF_HOSTING_COMMUNITY.md](SELF_HOSTING_COMMUNITY.md).
+
 ## License
 
-- **App** (AGPL-3.0) — Portal application and cloud publish tooling
-- **Skills** (MIT) — SKILL.md files, open distribution
+This repository is currently licensed under **AGPL-3.0**. See [LICENSE](LICENSE).

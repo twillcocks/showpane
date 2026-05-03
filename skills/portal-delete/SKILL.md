@@ -39,8 +39,12 @@ CLOUD_PORTAL_URL=$("$SHOWPANE_BIN/showpane-config" get portalUrl 2>/dev/null || 
 APP_PATH="${SHOWPANE_APP_PATH:-$APP_PATH}"
 if [ -f "$APP_PATH/.env" ]; then set -a && source "$APP_PATH/.env" && set +a; fi
 DATABASE_URL="${DATABASE_URL:-}"
-if [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
+if [ ! -d "$APP_PATH/node_modules" ]; then
   echo "App dependencies not installed. Run: cd $APP_PATH && npm install"
+  exit 1
+fi
+if [ ! -f "$APP_PATH/src/generated/prisma/client.ts" ]; then
+  echo "Prisma client not generated. Run: cd $APP_PATH && npm run prisma:generate"
   exit 1
 fi
 

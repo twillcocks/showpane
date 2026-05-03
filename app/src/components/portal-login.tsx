@@ -130,7 +130,7 @@ export function PortalLogin({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">Company Name</label>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">Username</label>
               <input
                 id="username"
                 type="text"
@@ -144,6 +144,7 @@ export function PortalLogin({
                 className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
                 required
               />
+              <p className="mt-1 text-xs text-gray-400">Usually your portal slug.</p>
             </div>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
@@ -161,7 +162,6 @@ export function PortalLogin({
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 transition-colors hover:text-gray-600"
-                  tabIndex={-1}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

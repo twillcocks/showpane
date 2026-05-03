@@ -218,6 +218,10 @@ fi
 
 echo ""
 echo "Installing app dependencies..."
+if [ ! -f "$SCRIPT_DIR/app/.env" ]; then
+  cp "$SCRIPT_DIR/app/.env.example" "$SCRIPT_DIR/app/.env"
+  echo "  Created app/.env from app/.env.example for local SQLite setup"
+fi
 cd "$SCRIPT_DIR/app"
 npm install --silent 2>/dev/null || npm install
 
@@ -256,7 +260,7 @@ echo "  1. Configure your portal:  /portal-setup"
 echo "  2. Or start fresh:         /portal-onboard"
 echo ""
 echo "Quick start (if you have a database ready):"
-echo "  1. Copy app/.env.example to app/.env and set DATABASE_URL + AUTH_SECRET"
+echo "  1. Review app/.env and set AUTH_SECRET before client auth"
 echo "  2. Run: cd app && npx prisma migrate dev"
 echo "  3. Run: cd app && npx prisma db seed"
 echo "  4. Run: cd app && npm run dev"

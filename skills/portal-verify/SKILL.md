@@ -29,8 +29,12 @@ CLOUD_PORTAL_URL=$("$SHOWPANE_BIN/showpane-config" get portalUrl 2>/dev/null || 
 APP_PATH="${SHOWPANE_APP_PATH:-$APP_PATH}"
 if [ -f "$APP_PATH/.env" ]; then set -a && source "$APP_PATH/.env" && set +a; fi
 DATABASE_URL="${DATABASE_URL:-}"
-if [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
+if [ ! -d "$APP_PATH/node_modules" ]; then
   echo "App dependencies not installed. Run: cd $APP_PATH && npm install"
+  exit 1
+fi
+if [ ! -f "$APP_PATH/src/generated/prisma/client.ts" ]; then
+  echo "Prisma client not generated. Run: cd $APP_PATH && npm run prisma:generate"
   exit 1
 fi
 
@@ -175,7 +179,7 @@ List all active portals from the database and verify each login page loads.
 ```bash
 cd "$APP_PATH" && PORTAL_LIST=$(npx tsx -e "
   const { prisma } = require('./src/lib/db');
-  prisma.clientPortal.findMany({ where: { isActive: true }, select: { slug: true, clientName: true } })
+  prisma.clientPortal.findMany({ where: { isActive: true }, select: { slug: true, companyName: true } })
     .then(portals => console.log(JSON.stringify(portals)))
     .finally(() => prisma.\$disconnect());
 " 2>/dev/null)
@@ -192,28 +196,31 @@ import sys, json
 portals = json.load(sys.stdin)
 for p in portals:
     slug = p['slug']
-    name = p.get('clientName', slug)
+    name = p.get('companyName', slug)
     print(f'  {name} ({slug})')
 print(f'{len(portals)} active portals')
 " 2>/dev/null
 ```
 
-Then for each portal slug, check the login page:
+Then for each portal slug, check the login page and the protected portal route separately:
 
 ```bash
 for SLUG in $(echo "$PORTAL_LIST" | python3 -c "
 import sys, json
 for p in json.load(sys.stdin): print(p['slug'])
 " 2>/dev/null); do
-  PAGE_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL/client/$SLUG" 2>/dev/null)
-  PAGE_BODY=$(curl -s "$PORTAL_URL/client/$SLUG" 2>/dev/null | head -c 5000)
-  HAS_AUTH=$(echo "$PAGE_BODY" | grep -ci 'password\|login\|sign.in\|auth' 2>/dev/null || echo "0")
-  if [ "$PAGE_CODE" = "200" ] && [ "$HAS_AUTH" -gt 0 ]; then
-    echo "  $SLUG: Login page OK"
-  elif [ "$PAGE_CODE" = "200" ]; then
-    echo "  $SLUG: Page loads ($PAGE_CODE) but no auth content detected"
+  LOGIN_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL/client?portal=$SLUG" 2>/dev/null)
+  LOGIN_BODY=$(curl -s "$PORTAL_URL/client?portal=$SLUG" 2>/dev/null | head -c 5000)
+  HAS_AUTH=$(echo "$LOGIN_BODY" | grep -ci 'password\|login\|sign.in\|auth' 2>/dev/null || echo "0")
+  DIRECT_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL/client/$SLUG" 2>/dev/null)
+  if [ "$LOGIN_CODE" = "200" ] && [ "$HAS_AUTH" -gt 0 ] && { [ "$DIRECT_CODE" = "302" ] || [ "$DIRECT_CODE" = "307" ] || [ "$DIRECT_CODE" = "308" ]; }; then
+    echo "  $SLUG: Login page OK; protected route redirects when unauthenticated"
+  elif [ "$LOGIN_CODE" = "200" ] && [ "$HAS_AUTH" -gt 0 ]; then
+    echo "  $SLUG: Login page OK; protected route returned $DIRECT_CODE"
+  elif [ "$LOGIN_CODE" = "200" ]; then
+    echo "  $SLUG: Login page loads but no auth content detected"
   else
-    echo "  $SLUG: FAILED ($PAGE_CODE)"
+    echo "  $SLUG: FAILED login page ($LOGIN_CODE)"
   fi
 done
 ```
@@ -260,20 +267,30 @@ If files exist, verify a sample file download endpoint responds:
 
 ```bash
 if [ "$FILE_COUNT" -gt 0 ]; then
-  SAMPLE_FILE_ID=$(echo "$FILE_INFO" | python3 -c "
+  SAMPLE_FILE_PATH=$(echo "$FILE_INFO" | python3 -c "
 import sys, json
+from urllib.parse import quote
 files = json.load(sys.stdin).get('files', [])
-if files: print(files[0]['id'])
+if files and files[0].get('filename'): print(quote(files[0]['filename']))
 " 2>/dev/null)
-  if [ -n "$SAMPLE_FILE_ID" ]; then
+  if [ -n "$SAMPLE_FILE_PATH" ]; then
     PORTAL_URL="${CLOUD_PORTAL_URL:-http://localhost:3000}"
-    DL_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL/api/files/$SAMPLE_FILE_ID" 2>/dev/null)
+    DL_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PORTAL_URL/api/client-files/$SAMPLE_FILE_PATH" 2>/dev/null)
     echo "File download endpoint: $DL_CODE"
-    if [ "$DL_CODE" = "200" ] || [ "$DL_CODE" = "302" ]; then
-      FILE_STATUS="accessible"
-    else
-      FILE_STATUS="endpoint returned $DL_CODE"
-    fi
+    case "$DL_CODE" in
+      200|302)
+        FILE_STATUS="accessible"
+        ;;
+      401|403)
+        FILE_STATUS="auth protected"
+        ;;
+      404)
+        FILE_STATUS="missing or unavailable"
+        ;;
+      *)
+        FILE_STATUS="endpoint returned $DL_CODE"
+        ;;
+    esac
   fi
 else
   FILE_STATUS="none hosted"

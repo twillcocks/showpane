@@ -6,6 +6,11 @@ import { getAuthenticatedPortal } from "@/lib/client-auth";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // The built-in example portal is static reference content and must stay public.
+  if (pathname === "/client/example") {
+    return NextResponse.next();
+  }
+
   // Login page: if already authenticated, redirect to portal
   if (pathname === "/client") {
     try {

@@ -45,7 +45,7 @@ Check that node_modules exists and the Prisma client is generated:
 if [ ! -d "$APP_PATH/node_modules" ]; then
   echo "Installing dependencies..."
   cd "$APP_PATH" && npm install
-elif [ ! -d "$APP_PATH/node_modules/.prisma" ]; then
+elif [ ! -f "$APP_PATH/src/generated/prisma/client.ts" ]; then
   echo "Generating Prisma client..."
   cd "$APP_PATH" && npm run prisma:generate
 fi
@@ -203,7 +203,7 @@ The Next.js dev server watches all files under `src/` for changes. When you edit
 
 Portals in development can be accessed in two ways:
 
-1. **Direct URL**: Navigate to `http://localhost:3000/client/<slug>` — this bypasses authentication during local development if the portal doesn't have credentials set yet
+1. **Direct URL**: Navigate to `http://localhost:3000/client/<slug>` to test the portal route. If no valid client auth cookie exists, it redirects to the login page with `?portal=<slug>`.
 2. **Login page**: Navigate to `http://localhost:3000/client` — use this to test the full authentication flow with credentials created via `/portal-credentials`
 
 The example portal at `/client/example` always works without authentication and is a useful reference while building new portals.

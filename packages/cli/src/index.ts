@@ -316,6 +316,36 @@ function parseClaudeArgs(args: string[]): ClaudeCommandOptions {
       continue;
     }
 
+    if (arg === "--full-name") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Missing value for --full-name.");
+      }
+      options.contactName = value.trim();
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--work-email") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Missing value for --work-email.");
+      }
+      options.contactEmail = value.trim();
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--website") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Missing value for --website.");
+      }
+      options.websiteUrl = value.trim();
+      index += 1;
+      continue;
+    }
+
     if (arg === "--project") {
       const value = args[index + 1];
       if (!value || value.startsWith("--")) {
@@ -1033,7 +1063,7 @@ function commandExists(command: string) {
     if (process.platform === "win32") {
       execSync(`where ${command}`, { stdio: "ignore" });
     } else {
-      execSync(`command -v ${command}`, { stdio: "ignore", shell: "/bin/zsh" });
+      execSync(`command -v ${command}`, { stdio: "ignore" });
     }
     return true;
   } catch {
@@ -1807,6 +1837,13 @@ async function createProject(args: string[]) {
     stepFailureForCreate("Creating project", errorLike);
   }
 
+  const authSecret = randomBytes(32).toString("hex");
+  const databaseUrl = `file:${join(projectRoot, "dev.db")}`;
+  writeFileSync(
+    join(projectRoot, ".env"),
+    `DATABASE_URL="${databaseUrl}"\nAUTH_SECRET="${authSecret}"\n`
+  );
+
   stepStartForCreate("Installing dependencies", options);
   try {
     await installDependencies(projectRoot, options.verbose);
@@ -1818,13 +1855,6 @@ async function createProject(args: string[]) {
       "Check your Node.js version and network connection, then try again."
     );
   }
-
-  const authSecret = randomBytes(32).toString("hex");
-  const databaseUrl = `file:${join(projectRoot, "dev.db")}`;
-  writeFileSync(
-    join(projectRoot, ".env"),
-    `DATABASE_URL="${databaseUrl}"\nAUTH_SECRET="${authSecret}"\n`
-  );
 
   stepStartForCreate("Configuring database", options);
   try {

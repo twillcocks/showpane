@@ -18,22 +18,30 @@ function getPortalServiceToken(): string | null {
   return process.env.PORTAL_SERVICE_TOKEN ?? null;
 }
 
-export function isControlPlaneMode(): boolean {
-  return Boolean(getControlPlaneUrl() && getPortalServiceToken());
+function getControlPlaneConfig(): { baseUrl: string; token: string } | null {
+  const baseUrl = getControlPlaneUrl();
+  const token = getPortalServiceToken();
+  return baseUrl && token ? { baseUrl, token } : null;
 }
 
-function getControlPlaneHeaders(): HeadersInit {
+export function isControlPlaneMode(): boolean {
+  return Boolean(getControlPlaneConfig());
+}
+
+function getControlPlaneHeaders(token: string): HeadersInit {
   return {
-    Authorization: `Bearer ${getPortalServiceToken()}`,
+    Authorization: `Bearer ${token}`,
   };
 }
 
 export async function listControlPlaneFiles(portalSlug: string): Promise<ControlPlaneFileRecord[]> {
-  const baseUrl = getControlPlaneUrl();
-  if (!baseUrl) return [];
+  const config = getControlPlaneConfig();
+  if (!config) {
+    throw new Error("Control plane is not configured");
+  }
 
-  const res = await fetch(`${baseUrl}/api/runtime/files?portalSlug=${encodeURIComponent(portalSlug)}`, {
-    headers: getControlPlaneHeaders(),
+  const res = await fetch(`${config.baseUrl}/api/runtime/files?portalSlug=${encodeURIComponent(portalSlug)}`, {
+    headers: getControlPlaneHeaders(config.token),
     cache: "no-store",
   });
   if (!res.ok) {
@@ -48,15 +56,18 @@ export async function downloadControlPlaneFile(
   portalSlug: string,
   pathSegments: string[]
 ): Promise<Response> {
-  const baseUrl = getControlPlaneUrl();
-  if (!baseUrl || !hasSafePathSegments(pathSegments) || pathSegments.length !== 1) {
+  const config = getControlPlaneConfig();
+  if (!hasSafePathSegments(pathSegments) || pathSegments.length !== 1) {
     return new Response(null, { status: 400 });
+  }
+  if (!config) {
+    return new Response(JSON.stringify({ error: "Control plane unavailable" }), { status: 503 });
   }
 
   return fetch(
-    `${baseUrl}/api/runtime/files/${encodeURIComponent(pathSegments[0])}?portalSlug=${encodeURIComponent(portalSlug)}`,
+    `${config.baseUrl}/api/runtime/files/${encodeURIComponent(pathSegments[0])}?portalSlug=${encodeURIComponent(portalSlug)}`,
     {
-      headers: getControlPlaneHeaders(),
+      headers: getControlPlaneHeaders(config.token),
       cache: "no-store",
     }
   );
@@ -66,13 +77,13 @@ export async function sendControlPlaneEvent(
   portalSlug: string,
   payload: LocalPortalEventPayload
 ): Promise<void> {
-  const baseUrl = getControlPlaneUrl();
-  if (!baseUrl) return;
+  const config = getControlPlaneConfig();
+  if (!config) return;
 
-  await fetch(`${baseUrl}/api/events`, {
+  await fetch(`${config.baseUrl}/api/events`, {
     method: "POST",
     headers: {
-      ...getControlPlaneHeaders(),
+      ...getControlPlaneHeaders(config.token),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(toCloudPortalEventPayload(portalSlug, payload)),
@@ -83,8 +94,8 @@ export async function uploadControlPlaneFile(
   portalSlug: string,
   file: File
 ): Promise<Response> {
-  const baseUrl = getControlPlaneUrl();
-  if (!baseUrl) {
+  const config = getControlPlaneConfig();
+  if (!config) {
     return new Response(JSON.stringify({ error: "Control plane unavailable" }), { status: 503 });
   }
 
@@ -92,9 +103,9 @@ export async function uploadControlPlaneFile(
   formData.append("portalSlug", portalSlug);
   formData.append("file", file);
 
-  return fetch(`${baseUrl}/api/runtime/files/upload`, {
+  return fetch(`${config.baseUrl}/api/runtime/files/upload`, {
     method: "POST",
-    headers: getControlPlaneHeaders(),
+    headers: getControlPlaneHeaders(config.token),
     body: formData,
   });
 }

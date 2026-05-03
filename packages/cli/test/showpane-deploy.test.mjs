@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const CLI_ENTRY = path.resolve("src/index.ts");
+const DEPLOY_ENTRY = path.resolve("../../bin/deploy-to-cloud.ts");
 
 function writeExecutable(filePath, contents) {
   fs.writeFileSync(filePath, contents);
@@ -61,4 +62,11 @@ exit 1
       nextAction: "open_checkout",
     },
   });
+});
+
+test("deploy URL verification treats unacceptable statuses as failures", () => {
+  const source = fs.readFileSync(DEPLOY_ENTRY, "utf8");
+
+  assert.match(source, /acceptableStatuses\.includes\(response\.status\) \? response\.status : null/);
+  assert.doesNotMatch(source, /acceptableStatuses\.includes\(response\.status\) \? response\.status : response\.status/);
 });

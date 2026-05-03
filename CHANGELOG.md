@@ -2,12 +2,21 @@
 
 This repo currently ships multiple versioned artifacts:
 
-- **Workspace/toolchain:** `1.1.8` (`/VERSION`)
-- **App scaffold:** `0.2.7` (`app/VERSION`)
-- **Skill pack:** `1.1.7` (`skills/VERSION`)
-- **npm CLI:** `0.4.29` (`packages/cli/package.json`)
+- **Workspace/toolchain:** `1.1.9` (`/VERSION`)
+- **App scaffold:** `0.2.9` (`app/VERSION`)
+- **Skill pack:** `1.1.8` (`skills/VERSION`)
+- **npm CLI:** `0.4.30` (`packages/cli/package.json`)
 
 The release notes below are product/app notes across `showpane` and `showpane-cloud`; they do not map 1:1 to the npm CLI version.
+
+## 0.2.9 (2026-05-03)
+
+### Fixed — Portal Runtime and Skill Contracts
+- **Example portal is public by design** — `/client/example` now bypasses portal auth, disables unavailable share/event calls, and keeps the demo route free of background 401s
+- **Control-plane configuration fails closed** — cloud file actions now require both control-plane URL and service token before sending bearer requests, and return explicit unavailable errors when the boundary is not configured
+- **Portal file downloads are safer** — client file responses now emit sanitized content-disposition filenames with RFC 5987 fallback support
+- **Generated portal skills match current routes** — verification and dev guidance now check the generated Prisma client path, use `/client?portal=...` for auth redirects, and verify `/api/client-files/...` instead of stale file API paths
+- **CLI and setup handoffs are more robust** — `showpane claude` accepts account flags, command lookup no longer depends on `/bin/zsh`, setup creates `.env` before installing, and share-link generation requires an explicit app URL
 
 ## 0.2.8 (2026-04-12)
 

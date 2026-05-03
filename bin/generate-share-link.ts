@@ -23,10 +23,10 @@ async function main() {
   const slug = getArg(args, "--slug");
   const orgId = getArg(args, "--org-id");
   const baseUrl = getArg(args, "--base-url")
-    ?? process.env.NEXT_PUBLIC_APP_URL
-    ?? "http://localhost:3000";
+    ?? process.env.NEXT_PUBLIC_APP_URL;
 
   if (!slug || !orgId) fail("Missing --slug or --org-id");
+  if (!baseUrl) fail("no_app_url");
 
   if (!process.env.AUTH_SECRET) fail("AUTH_SECRET not set in environment");
 

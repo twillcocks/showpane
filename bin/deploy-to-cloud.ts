@@ -381,7 +381,7 @@ async function verifyUrl(
 ): Promise<number | null> {
   try {
     const response = await fetch(url, { redirect: "manual" });
-    return acceptableStatuses.includes(response.status) ? response.status : response.status;
+    return acceptableStatuses.includes(response.status) ? response.status : null;
   } catch {
     return null;
   }

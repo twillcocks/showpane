@@ -122,3 +122,15 @@ export function getServedFileMetadata(
     disposition: INLINE_CONTENT_TYPES.has(contentType) ? "inline" : "attachment",
   };
 }
+
+export function getContentDispositionHeader(
+  disposition: "inline" | "attachment",
+  filename: string
+): string {
+  const fallbackFilename = sanitizeFilename(filename);
+  const encodedFilename = encodeURIComponent(filename).replace(/['()]/g, (char) =>
+    `%${char.charCodeAt(0).toString(16).toUpperCase()}`
+  );
+
+  return `${disposition}; filename="${fallbackFilename}"; filename*=UTF-8''${encodedFilename}`;
+}

@@ -4,10 +4,10 @@ Generate professional client portals in minutes using Claude Code.
 
 ## Current Versions
 
-- **Workspace/toolchain:** `1.1.8`
-- **App scaffold:** `0.2.7`
-- **Skill pack:** `1.1.7`
-- **npm CLI:** `0.4.29`
+- **Workspace/toolchain:** `1.1.9`
+- **App scaffold:** `0.2.9`
+- **Skill pack:** `1.1.8`
+- **npm CLI:** `0.4.30`
 
 ## Quick Start
 

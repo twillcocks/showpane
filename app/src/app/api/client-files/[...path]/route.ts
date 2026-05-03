@@ -3,7 +3,7 @@ import { getAuthenticatedPortal } from "@/lib/client-auth";
 import { downloadControlPlaneFile } from "@/lib/control-plane";
 import { readFile_, StorageError } from "@/lib/storage";
 import { prisma } from "@/lib/db";
-import { getServedFileMetadata, hasSafePathSegments } from "@/lib/files";
+import { getContentDispositionHeader, getServedFileMetadata, hasSafePathSegments } from "@/lib/files";
 import { getStoragePath } from "@/lib/storage";
 import { isRuntimeSnapshotMode } from "@/lib/runtime-state";
 
@@ -66,7 +66,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(data), {
       headers: {
         "Content-Type": served.contentType,
-        "Content-Disposition": `${served.disposition}; filename="${record.filename}"`,
+        "Content-Disposition": getContentDispositionHeader(served.disposition, record.filename),
         "Cache-Control": "private, max-age=3600",
         "X-Content-Type-Options": "nosniff",
       },

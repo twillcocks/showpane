@@ -42,8 +42,8 @@ export type PortalShellProps = {
   lastUpdated: string;
   hideFooterOnTab?: string;
 
-  shareEndpoint?: string;
-  eventsEndpoint?: string;
+  shareEndpoint?: string | null;
+  eventsEndpoint?: string | null;
 };
 
 // ── Visitor ID (sp_visitor cookie, 30-day, first-party UUID) ─────────────────
@@ -61,12 +61,14 @@ function getOrCreateVisitorId(): string {
 // ── Event tracking ───────────────────────────────────────────────────────────
 
 function trackEvent(
-  eventsEndpoint: string,
+  eventsEndpoint: string | null,
   event: PortalEventType,
   detail?: string,
   visitorId?: string,
   metadata?: PortalEventMetadata
 ) {
+  if (!eventsEndpoint) return;
+
   fetch(eventsEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -84,7 +86,7 @@ function readHashTab(tabIds: string[]): string {
 
 function useSectionTimeTracking(
   activeTab: string,
-  eventsEndpoint: string,
+  eventsEndpoint: string | null,
   visitorId: string
 ) {
   const sectionTimers = useRef<Map<string, number>>(new Map());
@@ -106,6 +108,7 @@ function useSectionTimeTracking(
   );
 
   useEffect(() => {
+    if (!eventsEndpoint) return;
     if (typeof IntersectionObserver === "undefined") return;
 
     // Flush all timers from previous tab
@@ -136,8 +139,8 @@ function useSectionTimeTracking(
 
     observerRef.current = observer;
 
-    // Observe all elements with data-section-id within #main-content
-    const mainContent = document.getElementById("main-content");
+    // Observe all elements with data-section-id within the active tab panel.
+    const mainContent = document.getElementById(`tabpanel-${activeTab}`);
     if (mainContent) {
       const sections = mainContent.querySelectorAll("[data-section-id]");
       sections.forEach((el) => observer.observe(el));
@@ -168,8 +171,10 @@ export function PortalShell({
   shareEndpoint,
   eventsEndpoint,
 }: PortalShellProps) {
-  const resolvedShareEndpoint = shareEndpoint ?? "/api/client-auth/share";
-  const resolvedEventsEndpoint = eventsEndpoint ?? "/api/client-events";
+  const resolvedShareEndpoint =
+    shareEndpoint === undefined ? "/api/client-auth/share" : shareEndpoint;
+  const resolvedEventsEndpoint =
+    eventsEndpoint === undefined ? "/api/client-events" : eventsEndpoint;
   const resolvedPortalLabel = portalLabel ?? "Client Portal";
   const resolvedContactMessage = contact.message ?? "Reach out anytime";
 
@@ -222,6 +227,8 @@ export function PortalShell({
   }
 
   async function handleShare() {
+    if (!resolvedShareEndpoint) return;
+
     try {
       const response = await fetch(resolvedShareEndpoint);
       if (!response.ok) { setCopyError(true); return; }
@@ -295,23 +302,25 @@ export function PortalShell({
                 <p className="text-[11px] text-gray-500">{companyName} {resolvedPortalLabel}</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleShare}
-              className={cn(
-                "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                copyError
-                  ? "border-red-200 text-red-600"
-                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
-              )}
-            >
-              {copied ? (
-                <Check className="h-3.5 w-3.5 text-green-500" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" />
-              )}
-              {copied ? "Copied!" : copyError ? "Failed to copy" : "Copy secure link"}
-            </button>
+            {resolvedShareEndpoint && (
+              <button
+                type="button"
+                onClick={handleShare}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                  copyError
+                    ? "border-red-200 text-red-600"
+                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                )}
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-green-500" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+                {copied ? "Copied!" : copyError ? "Failed to copy" : "Copy secure link"}
+              </button>
+            )}
           </div>
         </header>
 
@@ -351,7 +360,7 @@ export function PortalShell({
       </div>
 
       <main
-        id="main-content"
+        id={`tabpanel-${activeTab}`}
         role="tabpanel"
         aria-labelledby={`tab-${activeTab}`}
         className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8"

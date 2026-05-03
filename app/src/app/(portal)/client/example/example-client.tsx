@@ -354,6 +354,8 @@ export function ExamplePortalClient() {
       clientLogoAlt="Acme Health"
       lastUpdated="2 April 2026"
       hideFooterOnTab="overview"
+      shareEndpoint={null}
+      eventsEndpoint={null}
       contact={{
         name: "Jane Smith",
         title: "Account Manager",

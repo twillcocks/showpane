@@ -22,6 +22,16 @@ test("generated skill docs replace the shared placeholders", () => {
   assert.doesNotMatch(output, /\{\{COMPLETION\}\}/);
 });
 
+test("generated skill preamble checks the generated Prisma client path", () => {
+  const templates = discoverSkillTemplates();
+  const portalShare = templates.find((entry) => entry.includes("portal-share"));
+  assert.ok(portalShare);
+
+  const { output } = generateSkillDoc(portalShare);
+  assert.match(output, /src\/generated\/prisma\/client\.ts/);
+  assert.doesNotMatch(output, /node_modules\/\.prisma/);
+});
+
 test("shared runtime principles doc exists", () => {
   const runtimePrinciplesPath = path.join(REPO_ROOT, "skills", "shared", "runtime-principles.md");
   assert.equal(fs.existsSync(runtimePrinciplesPath), true);
